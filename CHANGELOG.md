@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-10-23 — payloads and node files
+
+The stored form of a declaration, and a registry node as one file,
+each with an implementation and an independent checker. Ids are
+unchanged: encoding scheme 1, the same `stmt` / `decl` / `ref` as v0.1.0.
 
 - `tools/registry_ref.py`: an independent checker for node files and
   `statements.json`, Python standard library only, written from
