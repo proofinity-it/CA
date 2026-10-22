@@ -5,8 +5,6 @@
   <img alt="One theorem, four objects: its name is found through a namespace and lasts until renamed; its statement is found by computing it from the proposition and survives renames, moves and re-proving; its Lean proof lives in a repository; its proof term is a cache found by asking the network" src="docs/banner-light.svg?v=3" width="100%">
 </picture>
 
-### Warning: this is an early prototype, still subject to conceptual and implementation flaws and API churn.
-
 CA gives every Lean 4 declaration an address derived from what it *is*
 — its elaborated statement and, where it matters, its value, with
 everything it mentions addressed the same way — rather than from its
@@ -73,6 +71,10 @@ The full table, with bindings and verification records, is in
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [All documents](docs/README.md) | index with the status of each |
+
+Status: v0.1.0. The encoding scheme is versioned (`meta.json` and every
+id preimage carry it), so a later scheme can coexist with this one; the
+registry is publishable but not yet consumable; the API may still change.
 
 Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.1.0"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with

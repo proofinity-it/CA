@@ -9,7 +9,8 @@
 - README: the "How it works" and "What it is for" sections moved to
   `docs/how-it-works.md` and `docs/what-it-is-for.md`; "The identity"
   folded into `docs/ref-hash.md`. All three listed in the documentation
-  table.
+  table. The prototype warning under the banner replaced by a status
+  line next to the quick start.
 - `cli/lake-manifest.json` pins the rewritten redis-lean, arrow-lean and
   zlog-lean histories (same tags, new hashes).
 
