@@ -18,7 +18,30 @@ deals with, and the values on it are real: `ByKFv4nqHrcs…` is the
 address of `Nat.add_zero`'s statement, derived byte by byte in
 [docs/worked-example.md](docs/worked-example.md).
 
-## One theorem, several objects: how each is found, what it survives
+## The registry
+
+Addresses exist to be looked up, and the registry is where that
+happens. A project marks the declarations it wants to publish, and
+`lake build` writes a `registry/` folder holding, for each, its ids,
+its status (open, proved, conditional, definition, axiom) and what its
+status depends on. Publishing is `git push`; the kernel that built the
+project is the verifier. The global registry is the union of such
+folders, together with the nodes that mirror or re-check them: no
+central server, no registrar. A reader with a statement in hand asks
+one question, "has this been proved, by whom, under which
+assumptions?", and gets the answer by id, never by name.
+
+Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
+is normative for the ids: the bytes of `stmt`, `decl` and `ref` under
+scheme 1, with test vectors and an independent reimplementation.
+[`docs/registry-protocol.md`](docs/registry-protocol.md) is a draft of
+the protocol between independent registries: statements as first-class
+objects, verification relative to stated assumptions, checkers and
+mirrors, signed names, and one SQLite file as the published form of a
+node. Today a registry can be generated; reading other projects'
+registries is specified but not yet implemented.
+
+## One theorem, several objects
 
 A theorem exists as several objects: its name, its statement, the Lean
 text of its proof, the proof term the elaborator produced, the compiled
