@@ -8,6 +8,7 @@ that exists. The source of truth for behaviour is the code and
 | Document | Kind | Status |
 |---|---|---|
 | [spec.md](spec.md) | specification | **normative** for scheme 1: the bytes of `stmt` / `decl` / `ref`, enough to reimplement them. Test vectors in §12; `python3 -I tools/refhash_ref.py` is an independent implementation written from it. |
+| [what-it-is-for.md](what-it-is-for.md) | overview | **current.** The uses that need a result, not a file, to be addressable; CA is the addressing layer only. |
 | [usage.md](usage.md) | guide | **current.** Using CA in a project: dependency, attributes, statuses, registry generation. |
 | [cli.md](cli.md) | reference | **current.** The `ca` command-line tool. |
 | [building.md](building.md) | guide | **current.** The two Lake packages, builds, tests, dependencies, versioning. |
