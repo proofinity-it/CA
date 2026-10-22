@@ -31,11 +31,14 @@ central server, no registrar. A reader with a statement in hand asks
 one question, "has this been proved, by whom, under which
 assumptions?", and gets the answer by id, never by name.
 
-A node is either **static**, a file a project produces with CA alone
-and publishes by copying it (nothing to host), or **live**, a working
-store with builds and kernel re-checks on top that exchanges the same
-file: [declbuild](docs/scope.md)'s is Redis. Running a server is never
-needed to publish or to read.
+The protocol has two kinds of node. A **static** node is a file a
+project produces and publishes by copying it, with nothing to host; a
+**live** node is a working store with builds and kernel re-checks on
+top that exchanges the same file ([declbuild](docs/scope.md)'s keeps
+its in Redis). Neither the file nor its tools exist yet: the format is
+drafted in [`docs/payload.md`](docs/payload.md), and producing,
+checking and reading it come next
+([`registry-protocol.md`](docs/registry-protocol.md) §17).
 
 Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
 is normative for the ids: the bytes of `stmt`, `decl` and `ref` under
@@ -113,6 +116,7 @@ The full table, with bindings and verification records, is in
 | [Worked example](docs/worked-example.md) | the banner's address computed byte by byte |
 | [How it works](docs/how-it-works.md) | the canonicalize / serialize / hash pipeline, L0 and L1, the name-based hash, and the registry: attributes, `#ca_registry`, the two-tier key, the statement cone and its cache |
 | [The identity: three ids per declaration](docs/ref-hash.md) | `stmt`, `decl`, `ref`: what each hashes and answers, why `ref` is the one a dependent embeds, blocks, scheme versions, the tested properties |
+| [Payloads (draft)](docs/payload.md) | the stored form of a declaration in a node file: canonical units the ids are recomputed from, decorations for names, the measured size |
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [All documents](docs/README.md) | index with the status of each |

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `docs/payload.md`, draft 1: the stored form of a declaration in a
+  node file. A per-file ref table; units (standalone, block or
+  statement) with the canonical terms as one shared node table, from
+  which the ids are recomputed without Lean or the cone; decorations
+  keyed by (`decl`, name) for everything the ids ignore. Sized on 4,827
+  Mathlib declarations with declbuild's `payload-probe`: 131% of
+  declbuild's payload with per-file tables, 230% with ids inline.
+  `registry-protocol.md` §4 and §12 use it; `spec.md` points to it.
+
 - CA is the specification of the registry, implementations hold nodes:
   `docs/registry-protocol.md` §1 adds static nodes (the SQLite file,
   CA alone, nothing to host) and live nodes (a working store that

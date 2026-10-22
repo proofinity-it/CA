@@ -161,9 +161,9 @@ equivalence witness, never through a `type_hash` match.
 
 | object | key | content | merge |
 |---|---|---|---|
-| **Statement** | `stmt` | the type in L0 form, its level parameters, the map from each constant it mentions to that constant's `ref`; hints: `type_hash`, pretty-printed type | identical bytes under identical key |
-| **Definition** (any non-theorem) | `decl` (= its `ref`) | serialised `ConstantInfo`, kind, `stmt`, dependency set (ref ids) | identical bytes; a differing payload under one key is a *fault* |
-| **Witness** | `decl` of a theorem | serialised `ConstantInfo` including the proof term; its `stmt`; dependency set; toolchain; hints: source fingerprint, module, name | identical bytes |
+| **Statement** | `stmt` | a statement unit ([`payload.md`](payload.md) §3): the type in L0 form, its level parameters, its references as `ref` ids; hints: `type_hash`, pretty-printed type | identical bytes under identical key |
+| **Definition** (any non-theorem) | `decl` (= its `ref`) | a unit (standalone, or the block it belongs to) and one decoration per name ([`payload.md`](payload.md)); kind, `stmt`, dependency set (ref ids) | identical units; a differing unit under one key is a *fault*; decorations union |
+| **Witness** | `decl` of a theorem | a unit including the proof term and its decorations; its `stmt`; dependency set; toolchain; hints: source fingerprint, module, name | identical units; decorations union |
 | **Witness set** | `stmt` | set of `decl` ids witnessing it | union |
 | **Reverse dependencies** | `ref` | set of `decl` ids referencing it | union (derived; may be recomputed) |
 | **Verification record** | (`decl`, record digest) | §3: `assumes`, `axioms`, toolchain, policy, signer, signature | union; retracted only by tombstone |
@@ -309,9 +309,14 @@ keys, plus a `meta` table holding the manifest:
 
 ```
 meta        (key, value)                       -- manifest: kind, scheme, toolchains, policy, signer
-statements  (stmt PK, level_params, type_bytes, type_hash, pp_type)
+statements  (stmt PK, level_params, type_bytes, type_hash, pp_type)  -- type_bytes: a statement unit
 stmt_refs   (stmt, name, ref, PK(stmt, name))  -- the statement's name → ref map
-declarations(decl PK, kind, stmt, ref, payload, toolchain)   -- definitions and witnesses
+declarations(decl PK, kind, stmt, ref, toolchain)   -- definitions and witnesses
+refs        (ix PK, ref)                       -- payload.md §6: the file's ref table
+names       (ix PK, name)                      -- and its name table
+units       (key PK, form, bytes)              -- canonical declarations (payload.md §3)
+members     (decl PK, unit, member)
+decorations (decl, name, bytes, PK(decl, name))  -- names, binders, hints (payload.md §4)
 deps        (decl, ref, PK(decl, ref))
 witnesses   (stmt, decl, PK(stmt, decl))
 records     (decl, digest PK, json, signer, valid)

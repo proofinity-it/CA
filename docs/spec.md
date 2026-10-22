@@ -5,7 +5,9 @@ Conformance is checked by the vectors in §12. An independent
 implementation written from this document alone,
 [`tools/refhash_ref.py`](../tools/refhash_ref.py), reproduces all of
 them. [`ref-hash.md`](ref-hash.md) explains the design and its
-rationale; this document says only what the bytes are.
+rationale; this document says only what the bytes are. How a
+declaration is *stored* so that these ids can be recomputed from it is
+[`payload.md`](payload.md) (draft); it does not affect any id.
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
