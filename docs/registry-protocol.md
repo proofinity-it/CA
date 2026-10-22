@@ -210,14 +210,18 @@ kernel check and does not make a proof correct.
 
 Per-key joins as in §4, plus:
 
-- **Fault.** Two different payloads under one content key means one of
-  them failed §5. A checker never stores the wrong one; it keeps its own
-  and records the peer as faulty. A mirror cannot tell and must forward
-  both; a consumer resolves by checking.
-- **Twins.** Declarations equal up to renaming share one `decl` and one
-  canonical payload; a second publisher's payload under its own names is
-  a named variant keyed by (`decl`, name) (declbuild's `cinfo-named:`),
-  not a competitor.
+- **Fault.** A unit under a content key whose check (§5) does not give
+  that key is a fault. A checker never stores it; it records the peer as
+  faulty. A mirror cannot tell and must forward what it has; a consumer
+  resolves by checking.
+- **Naming variants.** Two different units under one key that both check
+  to it are not a fault: they are the same content with different naming
+  patterns ([`payload.md`](payload.md) §1, 0.3% of keys in `Init`).
+  Both are kept, keyed by (key, variant digest); union.
+- **Twins.** Declarations equal up to a consistent renaming share one
+  `decl` and one unit; each name has its own decoration, keyed by
+  (`decl`, name), not a competitor. (declbuild's `cinfo-named:` rows
+  exist for this because its payload mixes names into the content.)
 
 ## 7. Names: namespaces, bindings, authority
 
@@ -314,8 +318,8 @@ stmt_refs   (stmt, name, ref, PK(stmt, name))  -- the statement's name → ref m
 declarations(decl PK, kind, stmt, ref, toolchain)   -- definitions and witnesses
 refs        (ix PK, ref)                       -- payload.md §6: the file's ref table
 names       (ix PK, name)                      -- and its name table
-units       (key PK, form, bytes)              -- canonical declarations (payload.md §3)
-members     (decl PK, unit, member)
+units       (key, variant, form, bytes, PK(key, variant))   -- payload.md §3; variant = digest of bytes
+members     (decl, name, key, variant, member, PK(decl, name))
 decorations (decl, name, bytes, PK(decl, name))  -- names, binders, hints (payload.md §4)
 deps        (decl, ref, PK(decl, ref))
 witnesses   (stmt, decl, PK(stmt, decl))

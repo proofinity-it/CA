@@ -9,6 +9,7 @@
 | `CA.Base58` | base58btc encode/decode for id rendering |
 | `CA.ExprHash` | Expr serialization, `DeclHash`, name-based batch hashing (the registry's `type_hash`) |
 | `CA.RefHash` | `stmt` / `decl` / `ref` ids: name-free content identity per declaration (proof-irrelevant references for theorems, value-inclusive otherwise), Merkle-hashed expressions, SCC blocks for mutual/inductive families; `stmtIdOf` for bare statements; `withProofs := false` for statement cones — see [`docs/ref-hash.md`](ref-hash.md); tests: `lake exe refhash-test` |
+| `CA.Payload` | the stored form of a declaration ([`docs/payload.md`](payload.md)): `encodeUnit` / `encodeStatement` (declarations → unit with name slots + decorations, self-checked by rebuilding), `checkUnit` (ids recomputed from a unit's bytes and the file's ref table), `decodeUnit` / `decodeDecoration` / `rebuild`; tests: `lake exe payload-test` |
 | `CA.Export` | JSON manifest, TSV edge list, summary statistics |
 | `CA.Util` | `collectConstants`, `constantKind`, `natToBytesBE`; `CA.schemeVersion` |
 

@@ -28,3 +28,8 @@ lean_exe "refhash-test" where
 lean_exe "registry-test" where
   root := `RegistryTest
   supportInterpreter := true
+
+/-- Round-trip tests for `CA.Payload` (units, decorations, checking) over `Init` and a small source. -/
+lean_exe "payload-test" where
+  root := `PayloadTest
+  supportInterpreter := true

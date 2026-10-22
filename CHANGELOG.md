@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `CA.Payload` (`docs/payload.md` draft 2): encode a standalone
+  constant, block or statement as a unit plus decorations, check a unit
+  by recomputing its ids from its bytes, rebuild the declarations. Names
+  are slots in the unit (draft 1 shared one reference between names with
+  the same id, so `HAdd.hAdd` and `HSub.hSub` came back as one name and
+  the rebuild did not type-check). `lake exe payload-test` round-trips
+  all 65,180 `Init` units exactly; 158 keys have naming variants.
+  `registry-protocol.md` §6: a fault is a unit that does not check to
+  its key; naming variants are kept side by side.
 - `docs/payload.md`, draft 1: the stored form of a declaration in a
   node file. A per-file ref table; units (standalone, block or
   statement) with the canonical terms as one shared node table, from

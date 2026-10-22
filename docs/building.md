@@ -4,7 +4,7 @@ The repository holds two Lake packages:
 
 | Directory | Package | Contents | Native deps |
 |---|---|---|---|
-| `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test` | **none**: pure Lean, Batteries only |
+| `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test` | **none**: pure Lean, Batteries only |
 | `cli/` | `ca-cli` | the `ca` command-line tool | OpenSSL, hiredis (+ zlog via redis-lean) |
 
 The library is what downstream projects `require`; it hashes with a
@@ -21,6 +21,7 @@ ids are identical either way).
 lake build
 lake exe refhash-test
 lake exe registry-test
+lake exe payload-test     # ~5 min: round-trips every Init declaration
 
 # CLI (Linux; needs the OpenSSL and hiredis development packages)
 cd cli

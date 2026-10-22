@@ -4,6 +4,7 @@ import CA.Canonical
 import CA.SHA256
 import CA.ExprHash
 import CA.RefHash
+import CA.Payload
 import CA.Export
 import CA.Registry.Basic
 import CA.Registry.Attributes
