@@ -3,6 +3,7 @@ import CA.Canonical
 import CA.SHA256
 import CA.ExprHash
 import CA.RefHash
+import CA.Payload
 import CA.Util
 import Lean.Util.Path
 
@@ -10,8 +11,13 @@ import Lean.Util.Path
 # Registry Generation Command
 
 Provides `#ca_registry "output_dir/"` — a command that generates
-`declarations.json` and `meta.json` from `@[publish]` and `@[open_point]`
-annotated declarations in the current environment.
+`declarations.json`, `statements.json` and `meta.json` from `@[publish]`
+and `@[open_point]` annotated declarations in the current environment.
+
+`statements.json` holds each entry's statement as a statement unit
+(`docs/payload.md`): the canonical type with names as slots, from which
+anyone recomputes the entry's `stmt` without Lean, and a decoration that
+names it. With it a registry folder holds statements, not only their ids.
 
 Intended to be placed at the end of a project's registry file so that
 `lake build` automatically produces the registry as a side-effect. Files
@@ -277,8 +283,9 @@ def defaultCacheDir : System.FilePath := ".lake" / "ca"
     with the exact imported results, and return each root's `stmt` /
     `ref`. For an `@[open_point]` (`def _ : Prop`) `stmt` is the id of
     its statement, i.e. the value. -/
-def computeEntryIds (env : Environment) (roots : Array Name) (hasher : Hasher := pureHasher)
-    (cacheDir : Option System.FilePath := some defaultCacheDir) : IO (Std.HashMap Name EntryIds) := do
+def computeEntryIdsAndTable (env : Environment) (roots : Array Name) (hasher : Hasher := pureHasher)
+    (cacheDir : Option System.FilePath := some defaultCacheDir) :
+    IO (Std.HashMap Name EntryIds × RefHash.RefTable) := do
   let cone := statementCone env roots
   let cachePath ← match cacheDir with
     | some d => pure (some (d / s!"reftable-{← importsCacheKey env}.bin"))
@@ -308,7 +315,12 @@ def computeEntryIds (env : Environment) (roots : Array Name) (hasher : Hasher :=
       | _ => pure (d.stmt, #[])
     let unresolved := ((unres ++ d.unresolved).foldl (fun (s : NameSet) x => s.insert x) {}).toArray
     out := out.insert n { stmt, ref := d.ref, unresolved }
-  return out
+  return (out, table)
+
+/-- `computeEntryIdsAndTable` without the table. -/
+def computeEntryIds (env : Environment) (roots : Array Name) (hasher : Hasher := pureHasher)
+    (cacheDir : Option System.FilePath := some defaultCacheDir) : IO (Std.HashMap Name EntryIds) :=
+  return (← computeEntryIdsAndTable env roots hasher cacheDir).1
 
 /-! ## Classification -/
 
@@ -447,7 +459,13 @@ structure RegistrySummary where
   conditional : Nat
   definitions : Nat
   axioms      : Nat
+  /-- Entries whose statement unit was written (`statements.json`). -/
+  statements  : Nat
+  /-- Entries whose statement unit did not check to their `stmt` or did
+      not rebuild exactly; their units are left out. -/
+  statementsSkipped : Array Name := #[]
   declsPath   : String
+  statementsPath : String
   metaPath    : String
   /-- Whether any file was (re)written. -/
   changed     : Bool
@@ -467,7 +485,7 @@ def generateRegistryCore (env : Environment) (outputDir : String)
     (project : String := "registry") (toolchain : Option String := none)
     (hasher : Hasher := pureHasher) (cacheDir : Option System.FilePath := some defaultCacheDir)
     : IO RegistrySummary := do
-  let ids ← computeEntryIds env ((annotated env).map (·.1)) hasher cacheDir
+  let (ids, table) ← computeEntryIdsAndTable env ((annotated env).map (·.1)) hasher cacheDir
   let entries := classify env ids
   let mut json : Array Lean.Json := #[]
   for e in entries do json := json.push (← entryToJson env e)
@@ -485,6 +503,29 @@ def generateRegistryCore (env : Environment) (outputDir : String)
   let declsPath := s!"{outputDir}/declarations.json"
   let c1 ← writeIfChanged declsPath (Lean.Json.arr json).pretty
 
+  -- Statement units: one per entry, against one file table.
+  let mut ft : CA.Payload.FileTable := {}
+  let mut stmts : Array Lean.Json := #[]
+  let mut skipped : Array Name := #[]
+  for e in entries do
+    match ← CA.Payload.encodeStatement e.ci.levelParams (hashTarget e.ci) table ft hasher (own := e.name) with
+    | .ok (enc, ft') =>
+      if enc.key != e.stmt || !enc.exact then skipped := skipped.push e.name; continue
+      ft := ft'
+      stmts := stmts.push (.mkObj [
+        ("name", .str e.name.toString),
+        ("stmt", .str (RefHash.toB58 e.stmt)),
+        ("unit", .str (CA.Payload.toBase64 enc.bytes)),
+        ("decoration", .str (CA.Payload.toBase64 enc.decorations[0]!.2))])
+    | .error _ => skipped := skipped.push e.name
+  let statementsPath := s!"{outputDir}/statements.json"
+  let c3 ← writeIfChanged statementsPath (Lean.Json.mkObj [
+    ("payload_format", .num ⟨CA.Payload.formatVersion.toNat, 0⟩),
+    ("ca_scheme_version", .num ⟨CA.schemeVersion, 0⟩),
+    ("refs", .arr (ft.refs.map (.str ∘ RefHash.toB58))),
+    ("names", .arr (ft.names.map CA.Payload.nameToJson)),
+    ("statements", .arr stmts)]).pretty
+
   let num (n : Nat) : Lean.Json := .num ⟨n, 0⟩
   let mut metaFields : List (String × Lean.Json) := [
     ("project", .str project),
@@ -495,6 +536,8 @@ def generateRegistryCore (env : Environment) (outputDir : String)
       ("exact", .str "stmt (RefHash statement id, base58); ref = what dependents embed"),
       ("coarse", .str "type_hash (name-based L0 SHA-256, hex)")]),
     ("entries", num entries.size),
+    ("statements", num stmts.size),
+    ("payload_format", num CA.Payload.formatVersion.toNat),
     ("open_points", num openPoints),
     ("open_points_proved", num openProved),
     ("published", num published),
@@ -509,7 +552,52 @@ def generateRegistryCore (env : Environment) (outputDir : String)
   let c2 ← writeIfChanged metaPath (Lean.Json.mkObj metaFields).pretty
 
   return { entries := entries.size, openPoints, openProved, published, proved, conditional,
-           definitions, axioms, declsPath, metaPath, changed := c1 || c2 }
+           definitions, axioms, statements := stmts.size, statementsSkipped := skipped,
+           declsPath, statementsPath, metaPath, changed := c1 || c2 || c3 }
+
+/-- Check a `statements.json`: every unit decodes, checks to the `stmt` it
+    is listed under (ids recomputed from its bytes and the file's ref
+    table alone), and its decoration rebuilds a type. Returns the number
+    checked and one message per failure. -/
+def checkStatementsFile (path : System.FilePath) (hasher : Hasher := pureHasher) :
+    IO (Nat × Array String) := do
+  let j ← match Lean.Json.parse (← IO.FS.readFile path) with
+    | .ok j => pure j
+    | .error e => return (0, #[s!"{path}: {e}"])
+  let arr (k : String) : Array Lean.Json := match j.getObjValD k with
+    | .arr a => a
+    | _ => #[]
+  let mut ft : CA.Payload.FileTable := {}
+  for r in arr "refs" do
+    match r.getStr?.toOption.bind CA.Base58.decode with
+    | some b => ft := (ft.refIx b).1
+    | none => return (0, #[s!"{path}: bad ref {r.compress}"])
+  for n in arr "names" do
+    match CA.Payload.nameOfJson? n with
+    | some nm => ft := { ft with names := ft.names.push nm }
+    | none => return (0, #[s!"{path}: bad name {n.compress}"])
+  let mut errors : Array String := #[]
+  let mut checked := 0
+  for st in arr "statements" do
+    let name := (st.getObjValAs? String "name").toOption.getD "?"
+    let want := (st.getObjValAs? String "stmt").toOption.getD ""
+    let some ub := (st.getObjValAs? String "unit").toOption.bind CA.Payload.ofBase64?
+      | errors := errors.push s!"{name}: unit is not base64"; continue
+    let some db := (st.getObjValAs? String "decoration").toOption.bind CA.Payload.ofBase64?
+      | errors := errors.push s!"{name}: decoration is not base64"; continue
+    match CA.Payload.decodeUnit ub with
+    | .error e => errors := errors.push s!"{name}: {e}"
+    | .ok u =>
+      match ← CA.Payload.checkUnit u ft.refs hasher with
+      | .error e => errors := errors.push s!"{name}: {e}"
+      | .ok c =>
+        if RefHash.toB58 c.key != want then
+          errors := errors.push s!"{name}: unit checks to {RefHash.toB58 c.key}, listed as {want}"
+        else
+          match CA.Payload.decodeDecoration db >>= CA.Payload.rebuildStatement u ft with
+          | .error e => errors := errors.push s!"{name}: decoration: {e}"
+          | .ok _ => checked := checked + 1
+  return (checked, errors)
 
 /-- Generate registry files from the current environment.
     Writes `declarations.json` and `meta.json` to the given output directory. -/
@@ -522,7 +610,9 @@ def generateRegistryFiles (outputDir : String) : CommandElabM Unit := do
     else env.mainModule.toString
   let s ← generateRegistryCore env outputDir (project := project) (toolchain := toolchain)
   logInfo m!"CA registry: {s.entries} entries — {s.openPoints} open points ({s.openProved} proved), {s.published} published: {s.proved} proved, {s.conditional} conditional, {s.definitions} definitions, {s.axioms} axioms"
-  logInfo m!"{if s.changed then "Wrote" else "Unchanged"} {s.declsPath}, {s.metaPath}"
+  logInfo m!"{if s.changed then "Wrote" else "Unchanged"} {s.declsPath}, {s.statementsPath}, {s.metaPath}"
+  unless s.statementsSkipped.isEmpty do
+    logWarning m!"CA registry: no statement unit for {s.statementsSkipped.toList}"
 
 /-- `#ca_registry "output_dir/"` — generates `declarations.json` and `meta.json`
     from `@[publish]` and `@[open_point]` annotations in the current environment.

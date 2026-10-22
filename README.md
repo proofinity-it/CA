@@ -23,7 +23,7 @@ address of `Nat.add_zero`'s statement, derived byte by byte in
 Addresses exist to be looked up, and the registry is where that
 happens. A project marks the declarations it wants to publish, and
 `lake build` writes a `registry/` folder holding, for each, its ids,
-its status (open, proved, conditional, definition, axiom) and what its
+its statement (checkable without Lean), its status (open, proved, conditional, definition, axiom) and what its
 status depends on. Publishing is `git push`; the kernel that built the
 project is the verifier. The global registry is the union of such
 folders, together with the nodes that mirror or re-check them: no

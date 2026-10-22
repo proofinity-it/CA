@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `#ca_registry` / `ca registry` also write `registry/statements.json`:
+  each entry's statement as a statement unit with a decoration, against
+  one ref and one name table for the file. Each unit recomputes the
+  entry's `stmt` from its bytes alone (`CA.Registry.checkStatementsFile`);
+  `registry-test` checks all 13 and catches a unit listed under another
+  entry's `stmt`. `CA.Payload.encodeStatement` takes the entry's name and
+  self-checks; `rebuildStatement`, base64 and name-as-JSON helpers.
+
 - `CA.Payload` (`docs/payload.md` draft 2): encode a standalone
   constant, block or statement as a unit plus decorations, check a unit
   by recomputing its ids from its bytes, rebuild the declarations. Names

@@ -915,11 +915,28 @@ def encodeUnit (decls : Array (Name × ConstantInfo)) (table : RefTable) (ft : F
       decos.map fun d => (d.own, d.toBytes), inexact.isEmpty, inexact, st.collisions⟩
     return .ok (out, ft)
 
+/-- Rebuild a statement unit's type with its decoration: the universe
+    binders and the type, names restored. -/
+def rebuildStatement (u : UnitData) (ft : FileTable) (d : Decoration) :
+    Except String (List Name × Expr) := do
+  if u.form != .statement then throw "not a statement unit"
+  let name : RRef → Name
+    | .ref j => match d.refNames[j]? with
+      | some p => ft.names[p]?.getD .anonymous
+      | none => .anonymous
+    | .byName n => n
+    | _ => d.own
+  let es := u.exprs name (fun k => d.levelParams[k]?.getD (Name.mkSimple s!"u_{k}"))
+    (fun k => d.binders[k]?.getD .anonymous)
+  return (d.levelParams.toList, es[u.members[0]!.type]!)
+
 /-- Encode a bare statement (the type of a theorem, with its universe
-    binders) as a statement unit. Its key is the `stmt` any theorem of
-    that type gets. -/
+    binders) as a statement unit, with one decoration naming it `own`
+    (for a registry entry, the entry's name). Its key is the `stmt` any
+    theorem of that type gets. The encoder rebuilds the type from its own
+    output and reports whether it came back exactly. -/
 def encodeStatement (levelParams : List Name) (type : Expr) (table : RefTable) (ft : FileTable)
-    (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher) :
+    (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher) (own : Name := .anonymous) :
     IO (Except String (Encoded × FileTable)) := do
   let (s, unres) ← CA.RefHash.stmtIdOf levelParams type table hasher
   let res (n : Name) : Res := match table.get? n with
@@ -935,10 +952,88 @@ def encodeStatement (levelParams : List Name) (type : Expr) (table : RefTable) (
       let (ft', i) := ft.refIx id
       ft := ft'
       fileRefs := fileRefs.push i
+    let mut refNames := #[]
+    for n in st.refName do
+      let (ft', i) := ft.nameIx n
+      ft := ft'
+      refNames := refNames.push i
     let m : Member := ⟨levelParams.length, ty, .thm none #[]⟩
     let data : UnitData := ⟨.statement, fileRefs, st.nodes, #[m]⟩
-    let ids : DeclIds := { name := .anonymous, stmt := s, decl := s, ref := s, unresolved := unres }
-    let out : Encoded := ⟨.statement, s, data.toBytes, data, #[ids], #[], true, #[], st.collisions⟩
+    let d : Decoration := ⟨own, 0, refNames, levelParams.toArray, st.binderSlots, none⟩
+    let exact := match rebuildStatement data ft d with
+      | .ok (lps, back) => sameExpr levelParams lps type back
+      | .error _ => false
+    let ids : DeclIds := { name := own, stmt := s, decl := s, ref := s, unresolved := unres }
+    let out : Encoded := ⟨.statement, s, data.toBytes, data, #[ids], #[(own, d.toBytes)], exact,
+      if exact then #[] else #[own], st.collisions⟩
     return .ok (out, ft)
+
+/-! ## Text encodings for JSON files -/
+
+private def b64Alphabet : String :=
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+/-- Standard base64 (RFC 4648, padded). -/
+def toBase64 (b : ByteArray) : String := Id.run do
+  let alpha := b64Alphabet.toList.toArray
+  let mut out := ""
+  let mut i := 0
+  while i + 2 < b.size do
+    let n := b[i]!.toNat * 65536 + b[i+1]!.toNat * 256 + b[i+2]!.toNat
+    out := out.push alpha[n / 262144]! |>.push alpha[n / 4096 % 64]!
+      |>.push alpha[n / 64 % 64]! |>.push alpha[n % 64]!
+    i := i + 3
+  if b.size - i == 1 then
+    let n := b[i]!.toNat * 65536
+    out := out.push alpha[n / 262144]! |>.push alpha[n / 4096 % 64]! |>.push '=' |>.push '='
+  else if b.size - i == 2 then
+    let n := b[i]!.toNat * 65536 + b[i+1]!.toNat * 256
+    out := out.push alpha[n / 262144]! |>.push alpha[n / 4096 % 64]!
+      |>.push alpha[n / 64 % 64]! |>.push '='
+  return out
+
+def ofBase64? (s : String) : Option ByteArray := do
+  let v (c : Char) : Option Nat :=
+    if 'A' ≤ c && c ≤ 'Z' then some (c.toNat - 'A'.toNat)
+    else if 'a' ≤ c && c ≤ 'z' then some (c.toNat - 'a'.toNat + 26)
+    else if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat + 52)
+    else if c == '+' then some 62 else if c == '/' then some 63 else none
+  let cs := s.toList.toArray
+  if cs.size % 4 != 0 then none
+  let mut out := ByteArray.empty
+  let mut i := 0
+  while i < cs.size do
+    let a ← v cs[i]!
+    let b ← v cs[i+1]!
+    let n1 := a * 4 + b / 16
+    out := out.push n1.toUInt8
+    if cs[i+2]! != '=' then
+      let c ← v cs[i+2]!
+      out := out.push ((b % 16) * 16 + c / 4).toUInt8
+      if cs[i+3]! != '=' then
+        let d ← v cs[i+3]!
+        out := out.push ((c % 4) * 64 + d).toUInt8
+    i := i + 4
+  return out
+
+/-- A name as a JSON array of its components (strings, and numbers for
+    numeric components): exact, unlike the dotted rendering. -/
+def nameToJson (n : Name) : Json :=
+  .arr (n.components.toArray.map fun c => match c with
+    | .str _ s => Json.str s
+    | .num _ k => Json.num k
+    | .anonymous => Json.num 0)
+
+def nameOfJson? (j : Json) : Option Name := do
+  let .arr cs := j | none
+  let mut n := Name.anonymous
+  for c in cs do
+    match c with
+    | .str s => n := .str n s
+    | .num k =>
+      if k.exponent != 0 || k.mantissa < 0 then none
+      n := .num n k.mantissa.toNat
+    | _ => none
+  return n
 
 end CA.Payload

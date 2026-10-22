@@ -137,6 +137,8 @@ my-project/
 └── registry/
     ├── declarations.json    # per declaration: stmt + ref (exact), type_hash (coarse),
     │                        #   name, status, type, deps, proves / proved_by / status_deps
+    ├── statements.json      # per declaration: its statement as a unit (docs/payload.md),
+    │                        #   from which anyone recomputes stmt without Lean
     └── meta.json            # counts by status, toolchain, encoding-scheme version
 ```
 
@@ -146,6 +148,9 @@ Commit the `registry/` folder to your git repo and push. Your
 declarations are now published under their content addresses, and
 anyone who clones the repository can verify them by rebuilding and
 regenerating the registry (`declarations.json` must come out identical).
+Checking a statement does not even need that: each unit in
+`statements.json` recomputes its `stmt` from its own bytes and the
+file's ref table (`CA.Registry.checkStatementsFile`).
 
 Discovery and resolution — a `sources.json` of known registries, and
 `use` / `resolve%` to bring a declaration into scope by address — are
@@ -164,6 +169,7 @@ my-project/
 │   └── Registry.lean              # retroactive annotations, #ca_registry "registry/"
 └── registry/                      # generated during lake build, committed to git
     ├── declarations.json
+    ├── statements.json
     └── meta.json
 ```
 

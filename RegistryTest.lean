@@ -128,6 +128,34 @@ def main : IO UInt32 := do
      | .ok (.arr a) => a.size == 13
      | _ => false))
 
+  -- Statement units: one per entry, each checking to its listed stmt.
+  fails := fails ++ (← check "statements.json: one unit per entry, none skipped"
+    (s1.statements == 13 && s1.statementsSkipped.isEmpty))
+  let (nChecked, errs) ← checkStatementsFile s1.statementsPath
+  for e in errs do IO.println s!"    {e}"
+  fails := fails ++ (← check s!"statements.json: {nChecked} units check to their stmt from their bytes alone"
+    (nChecked == 13 && errs.isEmpty))
+  -- Listing a unit under another entry's stmt is caught.
+  let tampered ← do
+    let txt ← IO.FS.readFile s1.statementsPath
+    match Lean.Json.parse txt with
+    | .ok j =>
+      match j.getObjValD "statements" with
+      | .arr a =>
+        let s0 := a[0]!.getObjValD "stmt"
+        let a := a.set! 1 (a[1]!.setObjVal! "stmt" s0)
+        let path := dir ++ "/statements-tampered.json"
+        IO.FS.writeFile path (j.setObjVal! "statements" (.arr a)).pretty
+        pure (some path)
+      | _ => pure none
+    | .error _ => pure none
+  match tampered with
+  | some path =>
+    let (_, errs2) ← checkStatementsFile path
+    IO.FS.removeFile path
+    fails := fails ++ (← check "a unit listed under another stmt is reported" (errs2.size == 1))
+  | none => fails := fails ++ (← check "tampered statements.json written" false)
+
   if fails.isEmpty then
     IO.println "\nAll Registry tests passed."
     return 0

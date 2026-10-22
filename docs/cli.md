@@ -27,7 +27,7 @@ ca selftest
 
 ## `registry`
 
-Generates `declarations.json` and `meta.json` from `@[publish]` and
+Generates `declarations.json`, `statements.json` and `meta.json` from `@[publish]` and
 `@[open_point]` annotations. Standalone alternative to `#ca_registry` for
 environments where the CA binary shares the same toolchain and search
 paths — the two produce byte-identical output.

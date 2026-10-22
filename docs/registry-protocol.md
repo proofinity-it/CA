@@ -26,9 +26,10 @@
 There are currently two registries that do not know about each other:
 
 - **CA's registry folder.** A project's `#ca_registry` writes
-  `registry/declarations.json` and `meta.json`
+  `registry/declarations.json`, `statements.json` and `meta.json`
   ([registry-design.md](registry-design.md)), published by `git push`:
-  ids and statuses, no statements, no payloads.
+  ids, statuses and statements (as units, [payload.md](payload.md)), no
+  proofs.
 - **declbuild's Redis network.** Every Redis instance holding
   declbuild's key schema is a node; `declbuild publish` and
   `declbuild peer push/pull` copy keys between nodes. It carries
@@ -450,7 +451,7 @@ From declbuild's `DeclBuild/Cli/Peer.lean`, `docs/redis-schema.md`,
 
 In CA, in this order: Statement objects in the registry folder (type
 bytes and `ref` map per entry, so a folder is a node readable on the
-same toolchain); `ca pack` producing the SQLite form from a folder and
+same toolchain; **done**, `statements.json`); `ca pack` producing the SQLite form from a folder and
 an environment; `tools/registry_ref.py`; `sources.json`; the two
 measurements (`stmt` survival across a toolchain bump, with and without
 the core cut; the full-mode versus statement-mode `stmt` mismatch rate

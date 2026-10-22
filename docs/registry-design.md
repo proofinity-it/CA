@@ -4,7 +4,8 @@
 > and parts are not. **Implemented:** `@[open_point]` / `@[publish]`,
 > `#ca_registry` and `ca registry` (one generation core; status
 > classification with `proves` / `proved_by` / `status_deps` and the
-> within-registry cascade; files written only on change), `meta.json`
+> within-registry cascade; files written only on change), `statements.json`
+> (each entry's statement as a unit, [payload.md](payload.md)), `meta.json`
 > with counts, toolchain and encoding-scheme version; the two-tier key
 > (`stmt` exact, `type_hash` coarse) with the cached statement cone.
 > **Not implemented:** `sources.json`, the resolution protocol (`use`,
@@ -113,6 +114,7 @@ my-project/
 │   └── Theorems.lean              # @[publish], @[open_point] annotations
 └── registry/                      # auto-generated, committed to git
     ├── declarations.json          # one entry per annotated declaration
+    ├── statements.json            # each entry's statement as a unit (payload.md)
     └── meta.json                  # counts by status, toolchain, scheme version
 ```
 
@@ -150,6 +152,25 @@ As emitted today:
 
 Planned additions: `url` (source repository), `commit` (the revision the
 registry was generated from), `generated_at`, `generator_version`.
+
+### `statements.json`
+
+Each entry's statement as a statement unit ([payload.md](payload.md) §3)
+with one decoration naming it, against one ref table and one name table
+for the file:
+
+```json
+{ "payload_format": 1, "ca_scheme_version": 1,
+  "refs":  ["<base58 ref id>", …],
+  "names": [["Nat", "add_zero"], …],
+  "statements": [{ "name": "Conj", "stmt": "ByKFv4nq…",
+                   "unit": "<base64>", "decoration": "<base64>" }, …] }
+```
+
+`stmt` is recomputed from `unit` and `refs` alone, with no Lean
+(`CA.Registry.checkStatementsFile`); the decoration rebuilds the type
+with its names. An entry whose unit does not check to its `stmt` or does
+not rebuild exactly is left out, with a warning (none in the tests).
 
 ### `declarations.json`
 
