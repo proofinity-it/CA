@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="CA: an address is made of the shape of a statement and the addresses of what it mentions; the proof is not part of it">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker></defs>
+<text x="40" y="36" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#6e7781" letter-spacing="0.8">AN ADDRESS IS MADE OF THE SHAPE OF A STATEMENT AND THE ADDRESSES OF WHAT IT MENTIONS</text>
+<text x="1160" y="36" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" font-weight="600" fill="#1f2328">CA</text>
+<rect x="40" y="62" width="150" height="70" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="115.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">Nat</text>
+<text x="115.0" y="118" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">9bUmPmuYBLg…</text>
+<rect x="218" y="62" width="560" height="70" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="498.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">theorem : ∀ n : Nat, n + 0 = n</text>
+<text x="498.0" y="118" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#0969da">stmt ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn</text>
+<path d="M191,97.0 C204.0,97.0 204.0,97.0 217,97.0" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="806" y="62" width="354" height="70" rx="10" fill="#f6f8fa" stroke="#8c959f" stroke-width="1.4" stroke-dasharray="7 6"/>
+<text x="983.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#6e7781">proof</text>
+<text x="983.0" y="118" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#6e7781">fun n => Nat.add_zero n</text>
+<text x="983.0" y="154" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#6e7781">not part of the address</text>
+<rect x="40" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="126.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">Eq</text>
+<text x="126.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">CsCMj6owGLa…</text>
+<rect x="226" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="312.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">HAdd.hAdd</text>
+<text x="312.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">3H2JnCKuEaT…</text>
+<rect x="412" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="498.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">instHAdd</text>
+<text x="498.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">6rEFXi3hyDW…</text>
+<rect x="598" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="684.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">instAddNat</text>
+<text x="684.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">33sftyMqxjE…</text>
+<rect x="784" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="870.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">OfNat.ofNat</text>
+<text x="870.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">AkiSexvWpb4…</text>
+<rect x="970" y="196" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="1056.0" y="222" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">instOfNatNat</text>
+<text x="1056.0" y="244" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">Fsqscbcf7WG…</text>
+<path d="M126.0,196 C126.0,164.5 258.0,164.5 258.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M312.0,196 C312.0,164.5 354.0,164.5 354.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M498.0,196 C498.0,164.5 450.0,164.5 450.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M684.0,196 C684.0,164.5 546.0,164.5 546.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M870.0,196 C870.0,164.5 642.0,164.5 642.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M1056.0,196 C1056.0,164.5 738.0,164.5 738.0,133" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="412" y="310" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="498.0" y="336" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">Add.add</text>
+<text x="498.0" y="358" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">AobaYk1sJ4R…</text>
+<rect x="598" y="310" width="172" height="62" rx="10" fill="#f6f8fa" stroke="#afb8c4" stroke-width="1.4"/>
+<text x="684.0" y="336" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" fill="#1f2328">Nat.add</text>
+<text x="684.0" y="358" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#0969da">Hi9pXw413qN…</text>
+<path d="M498.0,310 C498.0,284.5 498.0,284.5 498.0,259" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M684.0,310 C684.0,284.5 684.0,284.5 684.0,259" fill="none" stroke="#8c959f" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="792" y="348" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#6e7781">← a definition's id includes its value</text>
+<text x="40" y="386" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#6e7781">the statement as elaborated, no unfolding, with each constant replaced by its id · a theorem's id never includes its proof · names never enter</text>
+</svg>
