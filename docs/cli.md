@@ -36,7 +36,9 @@ paths — the two produce byte-identical output.
 
 Loads a Lean environment, computes name-based content addresses, and stores
 every declaration (name, kind, type, address, dependencies) to Redis.
-Requires a running Redis instance.
+Requires a running Redis instance. These `ca:decl:*` keys are a local
+index for the CLI's own lookups, not a registry node
+([registry-protocol.md](registry-protocol.md) §12).
 
 ## `address`
 

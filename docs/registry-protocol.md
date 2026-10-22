@@ -47,6 +47,16 @@ is a file any implementation can read.
   mathematics it has seen and no proofs at all. A question a node cannot
   answer is asked of other nodes (§10); replication is a choice (§10),
   never a requirement.
+- **One interchange form, any store behind it.** What crosses an
+  ownership boundary is a node file (§12). A **static** node is only
+  that file, produced with CA alone (`#ca_registry`, then `ca pack`) and
+  published by copying it: nothing to host, no service to run. A
+  **live** node keeps its objects in a working store with builds, kernel
+  runs and annotations on top (declbuild's is Redis) and conforms by
+  exporting to and importing from the file. Static or live says how a
+  node is held, and is independent of checker or mirror (§5), which says
+  what it checks on receipt. Running a server is the price of a live
+  node's features, never of publishing or reading.
 - **The statement is the unit.** Three layers are kept apart:
 
   | layer | known by | stable under |
@@ -291,9 +301,11 @@ during a check or build is the same mechanism.
 The protocol is the objects and rules above; a store format is how a
 node keeps them, a transport is how bytes move. Three are defined.
 
-**SQLite file — the canonical published node.** A node is one SQLite
-file, one table per object type, content ids as primary keys, plus a
-`meta` table holding the manifest:
+**SQLite file — the canonical published node.** Normative for
+interchange: two implementations exchange nodes in this form and no
+other, and a static node (§1) is this file and nothing else. A node is
+one SQLite file, one table per object type, content ids as primary
+keys, plus a `meta` table holding the manifest:
 
 ```
 meta        (key, value)                       -- manifest: kind, scheme, toolchains, policy, signer
@@ -339,7 +351,11 @@ copy between Redis instances (`peer push/pull`) remains as it is, inside
 a trust boundary, since Redis has no per-key authorisation. Exporting a
 Redis node to the SQLite form and importing one are the bridge between
 the two; declbuild's project state, daemon queues and `graph:*`
-compactions are local and never exported.
+compactions are local and never exported. Redis is one live store, not
+part of the protocol: another implementation may keep its live node in
+anything, provided it exports and imports the file. Likewise the `ca`
+CLI's Redis keys (`ca:decl:*`, written by `ca fetch` / `ca address`)
+are a local index for its own lookups, not a node.
 
 **Gateway — if a public writable node is wanted.** A small service in
 front of a store that accepts signed pushes and applies §5 before

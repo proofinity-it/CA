@@ -31,6 +31,12 @@ central server, no registrar. A reader with a statement in hand asks
 one question, "has this been proved, by whom, under which
 assumptions?", and gets the answer by id, never by name.
 
+A node is either **static**, a file a project produces with CA alone
+and publishes by copying it (nothing to host), or **live**, a working
+store with builds and kernel re-checks on top that exchanges the same
+file: [declbuild](docs/scope.md)'s is Redis. Running a server is never
+needed to publish or to read.
+
 Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
 is normative for the ids: the bytes of `stmt`, `decl` and `ref` under
 scheme 1, with test vectors and an independent reimplementation.

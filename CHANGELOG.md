@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- CA is the specification of the registry, implementations hold nodes:
+  `docs/registry-protocol.md` §1 adds static nodes (the SQLite file,
+  CA alone, nothing to host) and live nodes (a working store that
+  exports and imports the file; declbuild's is Redis), independent of
+  checker / mirror; §12 makes the SQLite file normative for
+  interchange and calls Redis one live store, not part of the protocol.
+  README and `docs/cli.md` say the same (the CLI's `ca:decl:*` keys are
+  a local index, not a node).
+
 - `docs/registry-protocol.md` draft 2: SQLite file as the published node
   format; checkers and mirrors; base-axiom policy; relative verification
   first; the exact tier's practical reach and the middle-tier question;
