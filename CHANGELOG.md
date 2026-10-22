@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- `tools/registry_ref.py`: an independent checker for node files and
+  `statements.json`, Python standard library only, written from
+  `payload.md` and `spec.md`. It decodes every unit, recomputes its ids
+  bottom-up over the node table, and checks every row against them; it
+  agrees with `ca check` on all 55,757 units of an `Init` node file
+  (about 30 s each). `payload.md` §9: test vectors (unit bytes for
+  `spec.md` §12's `T` block, `T.rec`, `idT` and `Nat.add_zero`'s
+  statement), reproduced by `registry_ref.py --vectors`.
+  `cli/tests/node-test.sh` runs both checkers on every file.
+
 - Node files: `ca pack` writes a registry node as one SQLite file (units,
   decorations, members, declarations, witnesses, statement units and
   registry entries; default the `@[publish]` / `@[open_point]`

@@ -18,7 +18,11 @@ for mode in "" --own --no-proofs; do
   out="node${mode}.sqlite"
   lake env "$ca" pack -m Fixture $mode -o "$out" >/dev/null 2>&1 || { bad "pack $mode"; continue; }
   if lake env "$ca" check "$out" >/dev/null 2>&1; then ok "pack ${mode:-(entries)} + check: no faults"; else bad "check $mode"; fi
+  # The independent Python checker (written from the documents) must agree.
+  if python3 -I "$here/../../tools/registry_ref.py" "$out" >/dev/null 2>&1; then ok "  and tools/registry_ref.py agrees"; else bad "registry_ref.py $mode"; fi
 done
+if python3 -I "$here/../../tools/registry_ref.py" registry/statements.json >/dev/null 2>&1; then
+  ok "registry/statements.json: tools/registry_ref.py agrees"; else bad "registry_ref.py statements.json"; fi
 
 # Tampering: each copy must fail `ca check`.
 tamper() {  # $1 label, $2 python statement over cursor c
@@ -27,7 +31,8 @@ tamper() {  # $1 label, $2 python statement over cursor c
 import sqlite3, sys, hashlib
 c = sqlite3.connect(sys.argv[1]); exec(sys.argv[2]); c.commit()
 PY
-  if lake env "$ca" check tampered.sqlite >/dev/null 2>&1; then bad "$1 not detected"; else ok "$1 detected"; fi
+  if lake env "$ca" check tampered.sqlite >/dev/null 2>&1; then bad "$1 not detected by ca check"; else ok "$1 detected"; fi
+  if python3 -I "$here/../../tools/registry_ref.py" tampered.sqlite >/dev/null 2>&1; then bad "$1 not detected by registry_ref.py"; fi
   rm -f tampered.sqlite
 }
 # A unit whose last node payload byte changes, with its variant digest

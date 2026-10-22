@@ -390,12 +390,17 @@ guarantees integrity and attribution.
 CA already has one for the ids: `tools/refhash_ref.py`, written from
 `spec.md` alone, reproduces its test vectors. The protocol gets the
 same treatment: `tools/registry_ref.py`, Python standard library only,
-operating on the SQLite form, implementing validity on receipt (ids via
-`refhash_ref.py`, signatures), merge, range reconciliation, the §3
-derivation of `proved` / `conditional` / `open`, and binding resolution.
-Two implementations that agree on a file, the Python one and the Lean
-one, are the conformance test; a set of small node files with known
-outcomes is the vector set.
+operating on the SQLite form. **Built so far** (2026-10-23): validity on
+receipt for content, i.e. every unit's ids recomputed from its bytes
+([payload.md](payload.md) §5) and every member, declaration, witness and
+entry row checked against them; it agrees with `ca check` on every unit
+of an `Init` node file and reproduces payload.md §9's vectors.
+**Still to do:** signatures, merge, range reconciliation, the §3
+derivation of `proved` / `conditional` / `open`, and binding resolution,
+all of which wait for records, bindings and the other tables to be
+written. Two implementations that agree on a file, the Python one and
+the Lean one, are the conformance test; `cli/tests/node-test.sh` runs
+both on every file it writes.
 
 ## 15. Today versus this specification
 
@@ -458,7 +463,8 @@ In CA, in this order: Statement objects in the registry folder (type
 bytes and `ref` map per entry, so a folder is a node readable on the
 same toolchain; **done**, `statements.json`); `ca pack` (**done**, with
 `ca check`) producing the SQLite form from a folder and
-an environment; `tools/registry_ref.py`; `sources.json`; the two
+an environment; `tools/registry_ref.py` (**content checks done**, §14);
+`sources.json`; the two
 measurements (`stmt` survival across a toolchain bump, with and without
 the core cut; the full-mode versus statement-mode `stmt` mismatch rate
 from `spec.md` §13).

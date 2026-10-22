@@ -23,6 +23,11 @@ lake exe refhash-test
 lake exe registry-test
 lake exe payload-test     # ~5 min: round-trips every Init declaration
 
+# Independent Python implementations (standard library only)
+python3 -I tools/refhash_ref.py              # spec.md §12 vectors
+python3 -I tools/registry_ref.py --vectors   # payload.md §9 vectors
+python3 -I tools/registry_ref.py FILE        # check a node file or a statements.json
+
 # CLI (Linux; needs the OpenSSL and hiredis development packages)
 cd cli
 lake build

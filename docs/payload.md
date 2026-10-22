@@ -238,8 +238,10 @@ well-typed, is a separate act (`registry-protocol.md` §5).
 `CA.Payload.checkUnit` does this by rebuilding the members with
 placeholder names and running `CA.RefHash.computeIds` on them, so the
 check is the id computation itself rather than a second implementation
-of it. An independent implementation (`tools/refhash_ref.py`, planned)
-follows the steps above.
+of it. `tools/registry_ref.py` (Python standard library, written from
+this document and `spec.md`) follows the steps above directly over the
+node table. The two agree on every unit of an `Init` node file (55,757
+units, about 30 s each) and on §9's vectors.
 
 ## 6. Files
 
@@ -328,6 +330,51 @@ with them yet.
   check to different ids. §6 needs that amendment.
 - **Extension state.** Simp sets, instances and attributes are not in a
   payload (`registry-protocol.md` §16, *Extension state*).
-- **Test vectors.** None yet. The plan: the units and decorations of
-  `spec.md` §12's Set A and Set B as bytes, and `tools/refhash_ref.py`
-  extended to decode a unit and reproduce the ids from it.
+- **Decoration vectors.** §9 pins units only; decorations (names) are
+  checked by round trip in `payload-test`, not by fixed bytes.
+
+## 9. Test vectors
+
+Units from `spec.md` §12's examples, as written by `ca pack` (Lean
+v4.35.0, scheme 1, payload format 1), with their reference slots
+renumbered `0…k-1` so each vector is self-contained: `refs` lists the id
+behind each slot, in order. Decoding a unit and recomputing its ids as
+in §5 must give `expect`: the unit's key, then the ids named in
+`members` (`i,j`: member `i`, and `j` = 0 `stmt`, 1 `decl`, 2 `ref`).
+The member ids are `spec.md` §12's golden values; the block id of `T` is
+new here. `python3 -I tools/registry_ref.py --vectors` checks all four.
+
+```text
+name: inductive T (block T.a, T, T.b; spec.md Set A)
+refs:
+unit: 0102000225320100241110030700003201000000000600010000000000000232003202013201070000320101000000
+members: 0,1 1,1
+expect: 6DDpCR3D7KYqmYRC6moj6BDzUbB6dStcvUkg4y11aevB 39W2PKpM7xCyj9RyTYDNjnibqnAuCUqBJxgewcAvjYQK AwbguQQn99uqMeaCaqyKHw57myYCFN8QxPuucQ8xeZTJ
+```
+
+```text
+name: T.rec (standalone; spec.md Set A)
+refs: AwbguQQn99uqMeaCaqyKHw57myYCFN8QxPuucQ8xeZTJ 39W2PKpM7xCyj9RyTYDNjnibqnAuCUqBJxgewcAvjYQK HXoucYvHwNNdQ18f52gCPdNBB1z6PGC3M2ieVM3KMGwh
+unit: 0101030001021525310000241400280001020121002531010026020121012531020026020121032601072800010b01280003040128000208012801000c0127000307092700020b012700000f012700030a0f2700020e01270000120108010e000001020000023101001131020014013100
+members: 0,0
+expect: E12cVn4293JnFftV3PpDQtt7Eb6WbphwUkmXg12dfqgn 6cqensD4yYH2bdFVSE3GAzBGexXV2M5NHCLiV4DjfAYD
+```
+
+```text
+name: idT (standalone; spec.md Set A)
+refs: AwbguQQn99uqMeaCaqyKHw57myYCFN8QxPuucQ8xeZTJ
+unit: 01010100042531000028000001012100270000030102000100030130
+expect: 2L8HHtdHc1GnBSmsACbRew9etEWEo1y4ZnNhX8XjGn1N
+```
+
+```text
+name: ∀ n : Nat, n + 0 = n (statement unit; spec.md Set B, Nat.add_zero)
+refs: 9bUmPmuYBLgXAzBq2ZWfqC4GTtS2habh6kKeA2KwLsCJ CsCMj6owGLa7e1vwzAoBCbq5mV5Bkg7LNUW4WecAGMoN 3H2JnCKuEaTitrkcLzGP8Mqk9aPWhAcJVzV2LjWgqq2U 6rEFXi3hyDWyTxWhhQzTnGoZFcFuQ3146MUiTdfZQYPF 33sftyMqxjE8r1YvonnZh1f68rNgaMxmi7t2yLQntpWb AkiSexvWpb4RP6NJTMidnYdyHynEPgTY7KBVPVwH3NVV Fsqscbcf7WGRoEZEMF17AavbX1bSu8b4KiFPbw5h8SCf
+unit: 010007000102030405061925310000253101011110260102253102031010102601042601052601062531030110260108253104002602012605012100260201253105011026010f2a002602012531060026010326030126080126140126010b28000018010018
+expect: ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn
+```
+
+The `refs` of the last vector are the `ref`s of `Nat`, `Eq`, `HAdd.hAdd`,
+`instHAdd`, `instAddNat`, `OfNat.ofNat` and `instOfNatNat` in slot
+order (`spec.md` §12 lists the same ids in hex).
+

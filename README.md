@@ -37,7 +37,9 @@ project produces and publishes by copying it, with nothing to host; a
 top that exchanges the same file ([declbuild](docs/scope.md)'s keeps
 its in Redis). `ca pack` writes a project's node file and `ca check`
 checks one without trusting it ([`docs/cli.md`](docs/cli.md); the format
-is [`docs/payload.md`](docs/payload.md), draft 2). Reading other
+is [`docs/payload.md`](docs/payload.md), draft 2). So does
+`tools/registry_ref.py`, an independent checker in Python's standard
+library written from the documents alone. Reading other
 projects' nodes into a build comes next
 ([`registry-protocol.md`](docs/registry-protocol.md) §17).
 

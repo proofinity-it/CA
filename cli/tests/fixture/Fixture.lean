@@ -16,5 +16,8 @@ import CA
 inductive Color where | red | green
 def Color.swap : Color → Color | .red => .green | .green => .red
 theorem twice (n : Nat) : n + n = 2 * n := by omega
+-- spec.md §12 Set A, for payload.md §9's test vectors.
+inductive T where | a | b
+def idT (x : T) : T := x
 
 #ca_registry "registry/"
