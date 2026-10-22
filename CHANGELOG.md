@@ -6,6 +6,8 @@
   format; checkers and mirrors; base-axiom policy; relative verification
   first; the exact tier's practical reach and the middle-tier question;
   reference implementation and sequencing.
+- README: the "How it works" section moved to `docs/how-it-works.md`,
+  listed in the documentation table.
 - `cli/lake-manifest.json` pins the rewritten redis-lean, arrow-lean and
   zlog-lean histories (same tags, new hashes).
 

@@ -14,6 +14,7 @@ that exists. The source of truth for behaviour is the code and
 | [modules.md](modules.md) | reference | **current.** The library's modules. |
 | [scope.md](scope.md) | overview | **current.** Where CA is used, related work, what an address covers and what it cannot. |
 | [worked-example.md](worked-example.md) | reference | **current** for Lean v4.35.0 / scheme 1. The README banner computed by hand: every intermediate id of `Nat.add_zero`'s `stmt`, with an `#eval` that reproduces it. |
+| [how-it-works.md](how-it-works.md) | overview | **current.** The canonicalize / serialize / hash pipeline, L0 and L1, the name-based hash, and how the registry is generated: attributes, `#ca_registry`, two-tier key, statement cone and cache. |
 | [ref-hash.md](ref-hash.md) | reference | **current.** The `stmt` / `decl` / `ref` identity scheme as implemented in `CA.RefHash`, scheme versions, tested properties. |
 | [address.md](address.md) | reference | **current** for the `ca address` CLI subcommand and the L0 / L1 canonicalisation levels; superseded by `ref-hash.md` for "what is a declaration's address". |
 | [l1-normalization.md](l1-normalization.md) | engineering note | **current** for `--level 1` in the CLI: what reducible `whnf` normalisation does, the native-`whnf` crash, and the micro-batching that avoids it. |
