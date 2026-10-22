@@ -2,7 +2,8 @@
 
 Status: **draft 2, not normative** (2026-10-22). Implemented by
 `CA.Payload` and tested by `lake exe payload-test`, which round-trips
-every declaration of `Init` (§7). This document defines the bytes a
+every declaration of `Init` (§7); `ca pack` and `ca check` write and
+check node files in the §6 layout (`cli/tests/node-test.sh`). This document defines the bytes a
 registry node stores for a declaration, so that
 
 1. anyone can recompute the declaration's ids from them with
@@ -245,16 +246,21 @@ follows the steps above.
 In the SQLite node file (`registry-protocol.md` §12):
 
 ```
-refs        (ix PK, ref)                         -- the file's ref table: 32-byte ids
-names       (ix PK, name)                        -- the file's name table (nm-encoded)
-units       (key, variant, form, bytes, PK(key, variant))   -- variant: SHA-256 of bytes
-members     (decl, name, key, variant, member, PK(decl, name))
-decorations (decl, name, bytes, PK(decl, name))
+refs        (ix PK, ref)                          -- the file's ref table: 32-byte ids
+names       (ix PK, name, display)                -- the file's name table: nm-encoded, plus the dotted rendering
+units       (id PK, key, variant, form, bytes, UNIQUE(key, variant))   -- variant: SHA-256 of bytes
+members     (decl, name → names, unit → units, member, PK(decl, name))
+decorations (decl, name → names, bytes, UNIQUE(decl, name))
 ```
 
 A `decl` has one row in `members` per name it is bound to. The row
 points at the unit variant that name's declaration encodes to, so twins
-point at one variant and naming variants at their own.
+point at one variant and naming variants at their own. Names, including
+those of members, decorations and entries, are stored once in `names`
+and cited by position; members cite their unit by row id. (Large rows
+are kept out of `WITHOUT ROWID` tables: with them the `Init` file was
+171 MB instead of 114 MB.) `ca pack` writes this file and `ca check`
+checks it ([cli.md](cli.md)).
 
 `refs` and `names` are per file: units cite positions, so each id and
 name is stored once per file, not once per use. Positions are local to

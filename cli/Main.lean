@@ -1,5 +1,6 @@
 import CA
 import CaCli.SHA256FFI
+import CaCli.NodeFile
 import Lean
 import Lean.Util.Path
 import Cli
@@ -103,7 +104,13 @@ def loadDeclarations (moduleName : Name) (extraPath : Option String := none)
   -- `loadExts := true`: restore persistent env-extension state (the
   -- `@[publish]`/`@[open_point]` NameMapExtensions live there); the
   -- default skips it and every annotation would read back as absent.
-  let env ← importModules #[{module := moduleName}] {} (loadExts := true)
+  -- Report an import failure ourselves: an uncaught IO error from here
+  -- crashed in the runtime's own error printer (SIGSEGV) instead of
+  -- showing the message.
+  let env ← try importModules #[{module := moduleName}] {} (loadExts := true)
+    catch e =>
+      IO.eprintln s!"error: importing {moduleName}: {e}"
+      IO.Process.exit 1
   IO.eprintln s!"Environment loaded: {env.constants.toList.length} constants"
   let decls := collectDeclarations env
   IO.eprintln s!"Found {decls.size} declarations (excluding internal names)"
@@ -483,6 +490,91 @@ def registryCmd : Cli.Cmd := `[Cli|
     o, output : String; "Output directory (default: registry)"
 ]
 
+-- Subcommands: pack, check (the node file)
+
+def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
+  let moduleName := parseModuleName p
+  let output := if p.hasFlag "output" then p.flag! "output" |>.as! String else "node.sqlite"
+  let withProofs := !p.hasFlag "no-proofs"
+  let (env, _) ← loadDeclarations moduleName (getExtraPath p)
+  let roots : Array Name ←
+    if p.hasFlag "all" then
+      pure (env.constants.toList.toArray.map (·.1))
+    else if p.hasFlag "own" then
+      let pfx := moduleName
+      pure <| (env.constants.toList.toArray.filter fun (n, _) =>
+        match env.getModuleIdxFor? n with
+        | some i => match env.header.moduleNames[i.toNat]? with
+          | some m => pfx.isPrefixOf m
+          | none => false
+        | none => true).map (·.1)
+    else
+      let ann := CA.Registry.annotated env
+      if ann.isEmpty then
+        IO.eprintln "error: no @[publish] / @[open_point] declarations; use --own (this module's declarations) or --all"
+        return 1
+      pure (ann.map (·.1))
+  let roots := roots.qsort Name.lt
+  IO.eprintln s!"Packing {roots.size} root declarations ({if withProofs then "with proofs" else "statement mode"})..."
+  let toolchain ← try
+      pure (some (← IO.FS.readFile "lean-toolchain").trimAscii.toString)
+    catch _ => pure none
+  let info := #[("payload_format", toString CA.Payload.formatVersion.toNat),
+                ("ca_scheme_version", toString CA.schemeVersion),
+                ("node", "static"), ("project", moduleName.toString),
+                ("proofs", if withProofs then "yes" else "no"),
+                ("lean_toolchain", toolchain.getD Lean.versionString)]
+  let t0 ← IO.monoMsNow
+  let (node, rep) ← CA.Node.packEnvironment env roots withProofs fastHasher (info := info)
+  let t1 ← IO.monoMsNow
+  CaCli.NodeFile.writeNode output node
+  let size := (← System.FilePath.metadata output).byteSize
+  IO.eprintln s!"Wrote {output}: {rep.declarations} declarations in {rep.units} units, {rep.statements} registry statements; {node.table.refs.size} refs, {node.table.names.size} names; {size} bytes ({(t1 - t0) / 1000} s)"
+  if rep.unresolved > 0 then
+    IO.eprintln s!"  {rep.unresolved} references hashed by name (spec.md §10): those ids are not exact"
+  unless rep.inexact.isEmpty do
+    IO.eprintln s!"  {rep.inexact.size} members do not rebuild exactly: {rep.inexact.toList.take 5}"
+  for e in rep.errors.toList.take 20 do IO.eprintln s!"  error: {e}"
+  return if rep.errors.isEmpty then 0 else 1
+
+def packCmd : Cli.Cmd := `[Cli|
+  pack VIA runPackCmd; ["0.1.0"]
+  "Write a registry node file (SQLite, docs/payload.md): units, decorations, statements."
+
+  FLAGS:
+    m, module : String; "Module to load (default: Mathlib)"
+    p, path : String; "Extra search path for .olean files"
+    o, output : String; "Output file (default: node.sqlite)"
+    own; "Pack every declaration of the module and its submodules (default: the @[publish] / @[open_point] ones)"
+    all; "Pack every declaration of the loaded environment"
+    "no-proofs"; "Statement mode: theorems without their proofs"
+]
+
+def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
+  let path := p.positionalArg! "file" |>.as! String
+  let t0 ← IO.monoMsNow
+  let node ← CaCli.NodeFile.readNode path
+  let rep ← CA.Node.checkNode node fastHasher
+  let t1 ← IO.monoMsNow
+  for (k, v) in node.info do IO.println s!"  {k}: {v}"
+  IO.println s!"{path}: {rep.units} units, {rep.members} members, {rep.decorations} decorations checked in {(t1 - t0) / 1000} s"
+  IO.println s!"  ids recomputed from the units' bytes; {rep.rebuilt} members rebuilt from their decorations to the same ids"
+  IO.println s!"  naming variants: {rep.namingVariants} keys; inexact units (names hashed by name): {rep.inexact}"
+  if rep.faults.isEmpty then
+    IO.println "  no faults"
+    return 0
+  IO.println s!"  {rep.faults.size} FAULTS:"
+  for f in rep.faults.toList.take 50 do IO.println s!"    {f}"
+  return 1
+
+def checkCmd : Cli.Cmd := `[Cli|
+  check VIA runCheckCmd; ["0.1.0"]
+  "Check a node file: every unit's ids recomputed from its bytes, every row against its unit, every decoration rebuilt."
+
+  ARGS:
+    file : String; "The node file (SQLite)"
+]
+
 -- Subcommand: selftest
 
 /-- Cross-check the OpenSSL hasher against the library's pure SHA-256 and
@@ -525,6 +617,8 @@ def caCmd : Cli.Cmd := `[Cli|
     fetchCmd;
     addressCmd;
     registryCmd;
+    packCmd;
+    checkCmd;
     selftestCmd
 ]
 

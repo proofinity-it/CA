@@ -35,9 +35,10 @@ The protocol has two kinds of node. A **static** node is a file a
 project produces and publishes by copying it, with nothing to host; a
 **live** node is a working store with builds and kernel re-checks on
 top that exchanges the same file ([declbuild](docs/scope.md)'s keeps
-its in Redis). Neither the file nor its tools exist yet: the format is
-drafted in [`docs/payload.md`](docs/payload.md), and producing,
-checking and reading it come next
+its in Redis). `ca pack` writes a project's node file and `ca check`
+checks one without trusting it ([`docs/cli.md`](docs/cli.md); the format
+is [`docs/payload.md`](docs/payload.md), draft 2). Reading other
+projects' nodes into a build comes next
 ([`registry-protocol.md`](docs/registry-protocol.md) §17).
 
 Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
@@ -122,8 +123,9 @@ The full table, with bindings and verification records, is in
 | [All documents](docs/README.md) | index with the status of each |
 
 Status: v0.1.0. The encoding scheme is versioned (`meta.json` and every
-id preimage carry it), so a later scheme can coexist with this one; the
-registry is publishable but not yet consumable; the API may still change.
+id preimage carry it), so a later scheme can coexist with this one; a
+registry is publishable as a folder or as a node file, and a node file is
+checkable, but nothing yet consumes one in a build; the API may still change.
 
 Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.1.0"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with

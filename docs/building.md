@@ -5,7 +5,7 @@ The repository holds two Lake packages:
 | Directory | Package | Contents | Native deps |
 |---|---|---|---|
 | `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test` | **none**: pure Lean, Batteries only |
-| `cli/` | `ca-cli` | the `ca` command-line tool | OpenSSL, hiredis (+ zlog via redis-lean) |
+| `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on a fixture project) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite is bundled by leansqlite |
 
 The library is what downstream projects `require`; it hashes with a
 pure-Lean SHA-256 and needs no system headers or link flags on any
@@ -27,6 +27,7 @@ lake exe payload-test     # ~5 min: round-trips every Init declaration
 cd cli
 lake build
 .lake/build/bin/ca --help
+tests/node-test.sh        # ca pack / ca check end to end on tests/fixture
 ```
 
 ## With Nix
@@ -62,6 +63,7 @@ The CLI's link flags name the Ubuntu library locations
 | [batteries](https://github.com/leanprover-community/batteries) | library | `NameMapExtension` for registry attributes |
 | [lean4-cli](https://github.com/leanprover/lean4-cli) | `cli/` | argument parsing |
 | [redis-lean](https://github.com/proofinity-it/redis-lean) | `cli/` | Redis (hiredis) for `fetch`/`address` |
+| [leansqlite](https://github.com/leanprover/leansqlite) | `cli/` | SQLite for node files (`pack` / `check`); bundles the SQLite amalgamation, so no system library; needs a C compiler `cc` |
 | OpenSSL (`libssl`, `libcrypto`) | `cli/` | SHA-256 accelerator (`CA.SHA256.FFI`) |
 
 A project that `require`s `ca` fetches Batteries and nothing else: Lake

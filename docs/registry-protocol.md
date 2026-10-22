@@ -314,16 +314,15 @@ keys, plus a `meta` table holding the manifest:
 
 ```
 meta        (key, value)                       -- manifest: kind, scheme, toolchains, policy, signer
-statements  (stmt PK, level_params, type_bytes, type_hash, pp_type)  -- type_bytes: a statement unit
-stmt_refs   (stmt, name, ref, PK(stmt, name))  -- the statement's name → ref map
-declarations(decl PK, kind, stmt, ref, toolchain)   -- definitions and witnesses
 refs        (ix PK, ref)                       -- payload.md §6: the file's ref table
-names       (ix PK, name)                      -- and its name table
-units       (key, variant, form, bytes, PK(key, variant))   -- payload.md §3; variant = digest of bytes
-members     (decl, name, key, variant, member, PK(decl, name))
-decorations (decl, name, bytes, PK(decl, name))  -- names, binders, hints (payload.md §4)
-deps        (decl, ref, PK(decl, ref))
+names       (ix PK, name, display)             -- and its name table
+units       (id PK, key, variant, form, bytes) -- payload.md §3, statements included (form 0)
+members     (decl, name, unit, member)         -- each bound name → its unit
+decorations (decl, name, bytes)                -- names, binders, hints (payload.md §4)
+declarations(decl PK, kind, stmt, ref)         -- definitions and witnesses
 witnesses   (stmt, decl, PK(stmt, decl))
+entries     (name PK, stmt, status, type_hash) -- registry entries; statement unit in units
+deps        (decl, ref, PK(decl, ref))
 records     (decl, digest PK, json, signer, valid)
 bindings    (ns, name, seq, target, sig, PK(ns, name, seq))
 namespaces  (ns PK, owner_key, delegates, sig)
@@ -331,6 +330,12 @@ tombstones  (target PK, kind, signer, sig, json)
 annotations (id, kind, digest PK, json, signer)
 dicts       (tag PK, bytes)
 ```
+
+`ca pack` writes, and `ca check` checks, the tables down to `entries`
+([payload.md](payload.md) §6 has their exact columns); `deps` and the
+rest are not written yet. A statement is a unit of form 0 keyed by its
+`stmt`, so there is no separate statements table; a pretty-printed type
+and `type_hash` are hints in `entries`.
 
 Why this is the published form:
 
@@ -451,7 +456,8 @@ From declbuild's `DeclBuild/Cli/Peer.lean`, `docs/redis-schema.md`,
 
 In CA, in this order: Statement objects in the registry folder (type
 bytes and `ref` map per entry, so a folder is a node readable on the
-same toolchain; **done**, `statements.json`); `ca pack` producing the SQLite form from a folder and
+same toolchain; **done**, `statements.json`); `ca pack` (**done**, with
+`ca check`) producing the SQLite form from a folder and
 an environment; `tools/registry_ref.py`; `sources.json`; the two
 measurements (`stmt` survival across a toolchain bump, with and without
 the core cut; the full-mode versus statement-mode `stmt` mismatch rate

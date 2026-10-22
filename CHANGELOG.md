@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Node files: `ca pack` writes a registry node as one SQLite file (units,
+  decorations, members, declarations, witnesses, statement units and
+  registry entries; default the `@[publish]` / `@[open_point]`
+  declarations, `--own` the module's, `--all` the environment's,
+  `--no-proofs` for statement mode) and `ca check` checks one without
+  trusting it. The logic is the library's new `CA.Node` (pure Lean);
+  SQLite is in `cli/` through leansqlite v4.35.0, which bundles SQLite.
+  All of `Init` packs to 114 MB and checks with no faults in about 30 s.
+  `cli/tests/node-test.sh` packs a fixture project three ways and
+  requires `ca check` to catch three kinds of tampering.
+- `ca`: an import failure is reported (`error: importing M: …`) instead
+  of crashing in the runtime's error printer; use `lake env ca …` inside
+  a project whose dependencies are not all under `.lake/packages`.
+
 - `#ca_registry` / `ca registry` also write `registry/statements.json`:
   each entry's statement as a statement unit with a decoration, against
   one ref and one name table for the file. Each unit recomputes the

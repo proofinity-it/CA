@@ -1,0 +1,133 @@
+import CA.Node
+import SQLite
+
+/-!
+# The node file: a registry node as one SQLite file
+
+`registry-protocol.md` §12 and `docs/payload.md` §6. `writeNode` writes
+the rows of a `CA.Node.Node` to a new file; `readNode` reads them back.
+Ids and digests are 32-byte blobs. Names live once in `names`, as
+`nm`-encoded blobs (`payload.md` §2) with a `display` column holding the
+dotted rendering for people and SQL queries; every other table cites
+them by position. Members cite their unit by row id.
+-/
+
+open Lean CA.Node CA.Payload
+
+namespace CaCli.NodeFile
+
+def schema : Array String := #[
+  "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  "CREATE TABLE refs (ix INTEGER PRIMARY KEY, ref BLOB NOT NULL)",
+  "CREATE TABLE names (ix INTEGER PRIMARY KEY, name BLOB NOT NULL, display TEXT NOT NULL)",
+  "CREATE TABLE units (id INTEGER PRIMARY KEY, key BLOB NOT NULL, variant BLOB NOT NULL, form INTEGER NOT NULL, bytes BLOB NOT NULL, UNIQUE (key, variant))",
+  "CREATE TABLE members (decl BLOB NOT NULL, name INTEGER NOT NULL REFERENCES names, unit INTEGER NOT NULL REFERENCES units, member INTEGER NOT NULL, PRIMARY KEY (decl, name)) WITHOUT ROWID",
+  "CREATE TABLE decorations (decl BLOB NOT NULL, name INTEGER NOT NULL REFERENCES names, bytes BLOB NOT NULL, UNIQUE (decl, name))",
+  "CREATE TABLE declarations (decl BLOB PRIMARY KEY, kind TEXT NOT NULL, stmt BLOB NOT NULL, ref BLOB NOT NULL) WITHOUT ROWID",
+  "CREATE TABLE witnesses (stmt BLOB NOT NULL, decl BLOB NOT NULL, PRIMARY KEY (stmt, decl)) WITHOUT ROWID",
+  "CREATE TABLE entries (name INTEGER PRIMARY KEY REFERENCES names, stmt BLOB NOT NULL, status TEXT NOT NULL, type_hash TEXT NOT NULL)",
+  "CREATE INDEX members_by_unit ON members (unit)"]
+
+def nameBytes (n : Name) : ByteArray := putName .empty n
+
+def nameOfBytes (b : ByteArray) : IO Name :=
+  match Rd.run' getName b with
+  | .ok n => pure n
+  | .error e => throw (IO.userError s!"bad name blob: {e}")
+
+def formOf : Int64 → IO Form
+  | 0 => pure .statement | 1 => pure .standalone | 2 => pure .block
+  | k => throw (IO.userError s!"bad form {k}")
+
+/-- Write `node` to a new SQLite file at `path` (an existing file is replaced). -/
+def writeNode (path : System.FilePath) (node : CA.Node.Node) : IO Unit := do
+  if ← path.pathExists then IO.FS.removeFile path
+  -- Member, decoration and entry names join the file's name table.
+  let mut table0 := node.table
+  let mut ixs : Std.HashMap Name Nat := {}
+  for n in node.members.map (·.name) ++ node.decorations.map (·.name) ++ node.entries.map (·.name) do
+    let (t, i) := table0.nameIx n
+    table0 := t
+    ixs := ixs.insert n i
+  let table := table0
+  let nameIx := ixs
+  let unitId : Std.HashMap (ByteArray × ByteArray) Nat :=
+    (node.units.mapIdx (·, ·)).foldl (fun m (i, u) => m.insert (u.key, u.variant) i) {}
+  let db ← SQLite.openWith path .readWriteCreate
+  for s in schema do db.exec s
+  db.transaction do
+    let ins {α : Type} (sql : String) (rows : Array α) (bind : SQLite.Stmt → α → IO Unit) : IO Unit := do
+      let st ← db.prepare sql
+      for r in rows do
+        bind st r
+        st.exec
+        st.reset
+        st.clearBindings
+    let ix (n : Name) : Int64 := (nameIx.getD n 0).toInt64
+    ins "INSERT INTO meta VALUES (?1, ?2)" node.info fun st (k, v) => do
+      st.bindText 1 k; st.bindText 2 v
+    ins "INSERT INTO refs VALUES (?1, ?2)" (table.refs.mapIdx (·, ·)) fun st (i, r) => do
+      st.bindInt64 1 i.toInt64; st.bindBlob 2 r
+    ins "INSERT INTO names VALUES (?1, ?2, ?3)" (table.names.mapIdx (·, ·)) fun st (i, n) => do
+      st.bindInt64 1 i.toInt64; st.bindBlob 2 (nameBytes n); st.bindText 3 n.toString
+    ins "INSERT INTO units VALUES (?1, ?2, ?3, ?4, ?5)" (node.units.mapIdx (·, ·)) fun st (i, u) => do
+      st.bindInt64 1 i.toInt64; st.bindBlob 2 u.key; st.bindBlob 3 u.variant
+      st.bindInt64 4 u.form.byte.toNat.toInt64; st.bindBlob 5 u.bytes
+    ins "INSERT OR IGNORE INTO members VALUES (?1, ?2, ?3, ?4)" node.members fun st m => do
+      st.bindBlob 1 m.decl; st.bindInt64 2 (ix m.name)
+      st.bindInt64 3 (unitId.getD (m.key, m.variant) 0).toInt64; st.bindInt64 4 m.member.toInt64
+    ins "INSERT OR IGNORE INTO decorations VALUES (?1, ?2, ?3)" node.decorations fun st d => do
+      st.bindBlob 1 d.decl; st.bindInt64 2 (ix d.name); st.bindBlob 3 d.bytes
+    ins "INSERT INTO declarations VALUES (?1, ?2, ?3, ?4)" node.declarations fun st d => do
+      st.bindBlob 1 d.decl; st.bindText 2 d.kind; st.bindBlob 3 d.stmt; st.bindBlob 4 d.ref
+    ins "INSERT INTO witnesses VALUES (?1, ?2)" node.witnesses fun st (s, d) => do
+      st.bindBlob 1 s; st.bindBlob 2 d
+    ins "INSERT INTO entries VALUES (?1, ?2, ?3, ?4)" node.entries fun st e => do
+      st.bindInt64 1 (ix e.name); st.bindBlob 2 e.stmt; st.bindText 3 e.status; st.bindText 4 e.typeHash
+  db.exec "VACUUM"
+
+/-- Read every row of a node file. -/
+def readNode (path : System.FilePath) : IO CA.Node.Node := do
+  unless ← path.pathExists do throw (IO.userError s!"{path}: no such file")
+  let db ← SQLite.openWith path .readonly
+  let rows {α : Type} (sql : String) (read : SQLite.Stmt → IO α) : IO (Array α) := do
+    let st ← db.prepare sql
+    let mut out := #[]
+    while ← st.step do out := out.push (← read st)
+    return out
+  let info ← rows "SELECT key, value FROM meta ORDER BY key" fun st => do
+    return (← st.columnText 0, ← st.columnText 1)
+  let refs ← rows "SELECT ref FROM refs ORDER BY ix" (·.columnBlob 0)
+  let names ← rows "SELECT name FROM names ORDER BY ix" fun st => do nameOfBytes (← st.columnBlob 0)
+  let mut table : FileTable := {}
+  for r in refs do table := (table.refIx r).1
+  if table.refs.size != refs.size then throw (IO.userError s!"{path}: duplicate ids in refs")
+  table := { table with names }
+  let nameAt (i : Int64) : IO Name := match names[i.toNatClampNeg]? with
+    | some n => pure n
+    | none => throw (IO.userError s!"{path}: name {i} out of range")
+  let units ← rows "SELECT key, variant, form, bytes FROM units ORDER BY id" fun st => do
+    return { key := ← st.columnBlob 0, variant := ← st.columnBlob 1,
+             form := ← formOf (← st.columnInt64 2), bytes := ← st.columnBlob 3 : UnitRow }
+  let unitAt (i : Int64) : IO UnitRow := match units[i.toNatClampNeg]? with
+    | some u => pure u
+    | none => throw (IO.userError s!"{path}: unit {i} out of range")
+  let members ← rows "SELECT decl, name, unit, member FROM members ORDER BY decl, name" fun st => do
+    let u ← unitAt (← st.columnInt64 2)
+    return { decl := ← st.columnBlob 0, name := ← nameAt (← st.columnInt64 1),
+             key := u.key, variant := u.variant,
+             member := (← st.columnInt64 3).toNatClampNeg : MemberRow }
+  let decorations ← rows "SELECT decl, name, bytes FROM decorations ORDER BY decl, name" fun st => do
+    return { decl := ← st.columnBlob 0, name := ← nameAt (← st.columnInt64 1),
+             bytes := ← st.columnBlob 2 : DecorationRow }
+  let declarations ← rows "SELECT decl, kind, stmt, ref FROM declarations ORDER BY decl" fun st => do
+    return { decl := ← st.columnBlob 0, kind := ← st.columnText 1,
+             stmt := ← st.columnBlob 2, ref := ← st.columnBlob 3 : DeclRow }
+  let witnesses ← rows "SELECT stmt, decl FROM witnesses ORDER BY stmt, decl" fun st => do
+    return (← st.columnBlob 0, ← st.columnBlob 1)
+  let entries ← rows "SELECT name, stmt, status, type_hash FROM entries ORDER BY name" fun st => do
+    return { name := ← nameAt (← st.columnInt64 0), stmt := ← st.columnBlob 1,
+             status := ← st.columnText 2, typeHash := ← st.columnText 3 : EntryRow }
+  return { info, table, units, members, decorations, declarations, witnesses, entries }
+
+end CaCli.NodeFile
