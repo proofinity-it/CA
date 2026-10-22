@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `registry-protocol.md` §15 brought up to date with declbuild
+  (2026-10-23: `sorryAx` gate, scheme separation done) and with what CA
+  v0.2.0 itself provides (statement units, node files, `ca check`).
+
 ## v0.2.0 — 2026-10-23 — payloads and node files
 
 The stored form of a declaration, and a registry node as one file,

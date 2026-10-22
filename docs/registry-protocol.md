@@ -405,23 +405,24 @@ both on every file it writes.
 ## 15. Today versus this specification
 
 From declbuild's `DeclBuild/Cli/Peer.lean`, `docs/redis-schema.md`,
-`docs/attestations.md`, `docs/relative-verification.md`, 2026-10-22.
+`docs/attestations.md`, `docs/relative-verification.md`, 2026-10-23.
+Where CA itself now provides the piece (v0.2.0), the row says so.
 
 | item | today (declbuild) | required here | priority |
 |---|---|---|---|
 | Content-keyed objects, union merge | done | same | — |
-| Relative verification | done; trust set as CA hashes; signed records | records state `assumes` as ref ids and `axioms`; `sorryAx` invalidates | **high** |
-| Statement as a first-class object | implicit only: a statement exists as the `stmt` of a stored payload | Statement with type bytes and `ref` map, holdable without a proof | **high** |
-| Published node format | none; Redis keys are the only form | SQLite file export / import | **high** |
-| Id check on receipt | **not done** in `peer push/pull` | checkers recompute; mirrors declare | **high** |
+| Relative verification | done; trust set as CA hashes; signed records; `sorryAx` fails the check and gets no record, `attest` skips a `sorry` declaration (2026-10-23) | records state `assumes` as ref ids and `axioms` | **high** |
+| Statement as a first-class object | implicit only: a statement exists as the `stmt` of a stored payload. CA has the object: a statement unit ([payload.md](payload.md) §3), in every `statements.json` and node file | Statement with type bytes and `ref` map, holdable without a proof | **high** |
+| Published node format | none in declbuild; Redis keys are its only form. CA writes and checks the file (`ca pack`, `ca check`, `tools/registry_ref.py`); declbuild's export / import is its next step | SQLite file export / import | **high** |
+| Id check on receipt | **not done** in `peer push/pull`. For node files it is `ca check` / `CA.Node.checkNode` | checkers recompute; mirrors declare | **high** |
 | Bindings | plain `SET`, last writer wins; no ownership proof (acknowledged open) | namespace id contains the owner key; signed, sequence-numbered | **high** |
-| Scheme separation | `doctor` guards one store; `peer` does not compare with the far end | manifest declares; no cross-scheme merge | medium |
+| Scheme separation | **done** (2026-10-23): the store declares `meta:id_scheme`; `peer`, `fetch` and `use` refuse a mismatch, or a node with content and no declared scheme | manifest declares; no cross-scheme merge | — |
 | "Proved" derived across nodes | not computed | §3 over trusted records | medium |
 | Revocation | none | tombstones, key revocation | medium |
 | Network queries | one `--registry` URL for lazy fetch; `peer` list of nodes | §10 over the sources list | medium |
 | Difference finding | per-id `EXISTS`; full id list per pull | range digests over sorted keys | medium |
 | Node manifest and sources list | none; `~/.declbuild/peers.json` | signed manifests; `sources.json` | medium |
-| Twins across nodes | `cinfo-named:` rows not carried (acknowledged) | carried as named variants | low |
+| Twins across nodes | `cinfo-named:` rows not carried by `peer` (acknowledged). In a node file the format solves it: one unit, one decoration per name ([payload.md](payload.md) §1) | carried as named variants | low |
 | Public write safety | Redis inside a trust boundary | files and read-only replicas; gateway if ever needed | when needed |
 
 ## 16. Open questions
