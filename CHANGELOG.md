@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `docs/registry-protocol.md` draft 2: SQLite file as the published node
+  format; checkers and mirrors; base-axiom policy; relative verification
+  first; the exact tier's practical reach and the middle-tier question;
+  reference implementation and sequencing.
+- `cli/lake-manifest.json` pins the rewritten redis-lean, arrow-lean and
+  zlog-lean histories (same tags, new hashes).
+
 ## v0.1.0 — 2026-10-22 — first public release
 
 Content-addressed identity for Lean 4 declarations, encoding scheme 1.

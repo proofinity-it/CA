@@ -205,7 +205,7 @@ documents describe what exists and which describe plans.
 | [Scope and related work](docs/scope.md) | where CA is used, LeanArchitect, what an address covers and what it cannot (incl. the closed-term / α-equivalence caveat) |
 | [Worked example](docs/worked-example.md) | the banner's address computed byte by byte |
 | [RefHash](docs/ref-hash.md) | the `stmt` / `decl` / `ref` identity scheme in full |
-| [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: objects, checks on receipt, merge, names, revocation, sync, transports; today vs required |
+| [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [All documents](docs/README.md) | index with the status of each |
 
