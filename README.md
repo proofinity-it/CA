@@ -57,30 +57,6 @@ Three rules follow, and the rest of CA is built on them:
 The full table, with bindings and verification records, is in
 [docs/ref-hash.md](docs/ref-hash.md#which-id-to-use-where-what-each-is-stable-under).
 
-## The identity: three ids per declaration
-
-`CA.RefHash` computes, for every declaration, three ids over canonical
-serialisations in which each referenced constant is replaced by its own
-id (names never enter) and mutual or inductive families are hashed as
-one strongly connected component:
-
-| id | of what | answers |
-|----|---------|---------|
-| `stmt` | the type, with universe arity | *what does this claim?* |
-| `decl` | the whole `ConstantInfo` — kind, flags, type, value, structural fields | *which declaration is this, exactly?* |
-| `ref` | `stmt` for theorems, `decl` otherwise | *what may a dependent rely on?* |
-
-`ref` is the interesting one. A dependent of a theorem can observe only
-its statement — by proof irrelevance no term can distinguish two proofs
-of one proposition — while a dependent of a definition may unfold it.
-Embedding `ref` therefore makes identity propagate exactly as far as
-mathematical dependence does.
-
-See [`docs/ref-hash.md`](docs/ref-hash.md) for the full construction,
-and `lake exe refhash-test` for the properties it is tested against
-(α-renaming invariance, proof irrelevance, value sensitivity, blocks,
-determinism, order independence).
-
 ## Documentation
 
 | Document | What it covers |
@@ -93,7 +69,7 @@ determinism, order independence).
 | [Scope and related work](docs/scope.md) | where CA is used, LeanArchitect, what an address covers and what it cannot (incl. the closed-term / α-equivalence caveat) |
 | [Worked example](docs/worked-example.md) | the banner's address computed byte by byte |
 | [How it works](docs/how-it-works.md) | the canonicalize / serialize / hash pipeline, L0 and L1, the name-based hash, and the registry: attributes, `#ca_registry`, the two-tier key, the statement cone and its cache |
-| [RefHash](docs/ref-hash.md) | the `stmt` / `decl` / `ref` identity scheme in full |
+| [The identity: three ids per declaration](docs/ref-hash.md) | `stmt`, `decl`, `ref`: what each hashes and answers, why `ref` is the one a dependent embeds, blocks, scheme versions, the tested properties |
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [All documents](docs/README.md) | index with the status of each |

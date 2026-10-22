@@ -20,6 +20,23 @@ This page explains the design.
 
 ## The three ids
 
+`CA.RefHash` computes, for every declaration, three ids over canonical
+serialisations in which each referenced constant is replaced by its own
+id (names never enter) and mutual or inductive families are hashed as
+one strongly connected component:
+
+| id | of what | answers |
+|----|---------|---------|
+| `stmt` | the type, with universe arity | *what does this claim?* |
+| `decl` | the whole `ConstantInfo` — kind, flags, type, value, structural fields | *which declaration is this, exactly?* |
+| `ref` | `stmt` for theorems, `decl` otherwise | *what may a dependent rely on?* |
+
+`ref` is the interesting one. A dependent of a theorem can observe only
+its statement — by proof irrelevance no term can distinguish two proofs
+of one proposition — while a dependent of a definition may unfold it.
+Embedding `ref` therefore makes identity propagate exactly as far as
+mathematical dependence does.
+
 For a constant `c`, foundations first over the reference DAG:
 
 ```
