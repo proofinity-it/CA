@@ -11,6 +11,9 @@
   folded into `docs/ref-hash.md`. All three listed in the documentation
   table. The prototype warning under the banner replaced by a status
   line next to the quick start.
+- README: the objects table rewritten with four columns (object, how you
+  find it, unchanged by, changed by); `ref` explained as the embedding
+  rule rather than a row; weaknesses named explicitly.
 - `cli/lake-manifest.json` pins the rewritten redis-lean, arrow-lean and
   zlog-lean histories (same tags, new hashes).
 
