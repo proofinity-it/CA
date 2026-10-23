@@ -322,7 +322,7 @@ def runFetchCmd (p : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def fetchCmd : Cli.Cmd := `[Cli|
-  fetch VIA runFetchCmd; ["0.2.0"]
+  fetch VIA runFetchCmd; ["0.2.1"]
   "Load Mathlib environment, compute content addresses, and store everything in Redis."
 
   FLAGS:
@@ -442,7 +442,7 @@ def runAddressCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def addressCmd : Cli.Cmd := `[Cli|
-  address VIA runAddressCmd; ["0.2.0"]
+  address VIA runAddressCmd; ["0.2.1"]
   "Compute content addresses for all declarations and export manifest."
 
   FLAGS:
@@ -481,7 +481,7 @@ def runRegistryCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def registryCmd : Cli.Cmd := `[Cli|
-  registry VIA runRegistryCmd; ["0.2.0"]
+  registry VIA runRegistryCmd; ["0.2.1"]
   "Generate a project registry from @[publish] and @[open_point] annotations."
 
   FLAGS:
@@ -538,7 +538,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
   return if rep.errors.isEmpty then 0 else 1
 
 def packCmd : Cli.Cmd := `[Cli|
-  pack VIA runPackCmd; ["0.2.0"]
+  pack VIA runPackCmd; ["0.2.1"]
   "Write a registry node file (SQLite, docs/payload.md): units, decorations, statements."
 
   FLAGS:
@@ -568,7 +568,7 @@ def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
   return 1
 
 def checkCmd : Cli.Cmd := `[Cli|
-  check VIA runCheckCmd; ["0.2.0"]
+  check VIA runCheckCmd; ["0.2.1"]
   "Check a node file: every unit's ids recomputed from its bytes, every row against its unit, every decoration rebuilt."
 
   ARGS:
@@ -603,14 +603,14 @@ def runSelftestCmd (_ : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def selftestCmd : Cli.Cmd := `[Cli|
-  selftest VIA runSelftestCmd; ["0.2.0"]
+  selftest VIA runSelftestCmd; ["0.2.1"]
   "Check that the OpenSSL SHA-256 agrees with the library's pure implementation."
 ]
 
 -- Top-level CLI
 
 def caCmd : Cli.Cmd := `[Cli|
-  ca NOOP; ["0.2.0"]
+  ca NOOP; ["0.2.1"]
   "Content-addressed declaration hashing for Lean 4 environments."
 
   SUBCOMMANDS:

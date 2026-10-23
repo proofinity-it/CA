@@ -124,12 +124,12 @@ The full table, with bindings and verification records, is in
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [All documents](docs/README.md) | index with the status of each |
 
-Status: v0.2.0. The encoding scheme is versioned (`meta.json` and every
+Status: v0.2.1. The encoding scheme is versioned (`meta.json` and every
 id preimage carry it), so a later scheme can coexist with this one; a
 registry is publishable as a folder or as a node file, and a node file is
 checkable, but nothing yet consumes one in a build; the API may still change.
 
-Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.2.0"`,
+Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.2.1"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with
 `#ca_registry "registry/"`; `lake build` writes the registry.
 

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.2.1 — 2026-10-23 — packing without an environment
+
+Ids are unchanged (encoding scheme 1, as v0.1.0 and v0.2.0).
 
 - `CA.Node.packDecls`: the rows of a node from declarations and the ids
   of what they reference, with no `Environment`, so a store that holds
