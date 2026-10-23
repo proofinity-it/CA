@@ -10,3 +10,5 @@ import CA.Export
 import CA.Registry.Basic
 import CA.Registry.Attributes
 import CA.Registry.Generate
+import CA.Sources
+import CA.Resolve

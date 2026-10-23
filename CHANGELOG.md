@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Consuming registries (plan item 1). `sources.json` lists the registries
+  a project consults: folder (`registry/`) or node file, local path or
+  URL (`CA.Sources`). `#ca_lookup "<stmt | type_hash | name>"` prints what
+  the folder sources hold for a query; `resolve% "<stmt>"` is the proof a
+  source binds to a statement, accepted only if the constant is in scope
+  and recomputes to that `stmt` here (`CA.Resolve`). `ca lookup QUERY`
+  asks every source, node files included (entries, witnesses,
+  declarations, twins; `--json`; exit 2 when nothing answers);
+  `ca fetch-sources` copies URL sources into `.lake/ca/sources/`.
+  `CA.NodeFile` gains the queries (and two indexes). Tests in
+  `registry-test` and `node-test.sh`.
 - `docs/plan.md`: the development plan, with a status line per item;
   listed in the README and the docs index. `payload.md` §8 drops the
   naming-variant question the protocol settled.

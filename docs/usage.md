@@ -152,11 +152,50 @@ Checking a statement does not even need that: each unit in
 `statements.json` recomputes its `stmt` from its own bytes and the
 file's ref table (`CA.Registry.checkStatementsFile`).
 
-Discovery and resolution — a `sources.json` of known registries, and
-`use` / `resolve%` to bring a declaration into scope by address — are
-designed in [registry-design.md](registry-design.md) but not
-implemented, so there is nothing to register your project with today.
-Until then a registry is consumed by reading its `declarations.json`.
+There is no central list to register your project with: a project that
+wants to consult yours lists your registry in its `sources.json` (next
+step).
+
+## Step 6: Consult other registries
+
+List the registries your project consults in `sources.json` at the
+project root. A source is a **folder** (a published `registry/`) or a
+**node** file (`ca pack`'s SQLite file), by local path or URL:
+
+```json
+{ "sources": [
+    { "name": "upstream", "kind": "folder",
+      "location": "https://example.org/upstream/registry" },
+    { "name": "local-node", "location": "../proofs/node.sqlite" } ] }
+```
+
+`kind` may be omitted: a location ending in `.sqlite` is a node, anything
+else a folder. URL sources are fetched into `.lake/ca/sources/` by
+`ca fetch-sources`; local paths are read in place.
+
+Then, in any module:
+
+```lean
+#ca_lookup "ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn"   -- a stmt (base58)
+#ca_lookup "d73f3967fc94d334681986a8fd4e9e327ed9eab8a5890cc007a0e804f0243ad8" -- a type_hash (hex)
+#ca_lookup "Conj"                                            -- a name
+
+example : ∀ n : Nat, n + 0 = n :=
+  resolve% "ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn"
+```
+
+`#ca_lookup` prints every entry the folder sources hold for the query:
+status, who proved it, the open points it assumes, the statement.
+`resolve% "<stmt>"` is a term: the proof a source binds to that
+statement, **provided the constant is in the current environment and
+has that `stmt` here too**, which `resolve%` recomputes; so a source
+cannot bind an address to a declaration that means something else. When
+the constant is not in scope, the error names the project and module to
+add as a dependency. Theorems are preferred over the `def _ : Prop` that
+states an open point. The library reads folder sources only (it is pure
+Lean); node files are read by `ca lookup`, which also lists the
+declarations and witnesses a node holds for a statement
+([cli.md](cli.md)).
 
 ## What your project looks like
 

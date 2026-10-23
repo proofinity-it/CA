@@ -156,6 +156,77 @@ def main : IO UInt32 := do
     fails := fails ++ (← check "a unit listed under another stmt is reported" (errs2.size == 1))
   | none => fails := fails ++ (← check "tampered statements.json written" false)
 
+  -- Sources: the generated folder as a source of its own project.
+  IO.println "Sources:"
+  let (conjStmt, conjTypeHash) := match byName.get? `Conj with
+    | some e => (CA.RefHash.toB58 e.stmt, e.address)
+    | none => ("", "")
+  let cwd ← IO.currentDir
+  IO.FS.writeFile (dir ++ "/sources.json")
+    "{ \"sources\": [ { \"name\": \"self\", \"kind\": \"folder\", \"location\": \".\" },\n  { \"name\": \"a-node\", \"location\": \"missing.sqlite\" } ] }"
+  IO.Process.setCurrentDir dir
+  let sf ← match ← CA.Sources.read with
+    | some (.ok sf) => pure sf
+    | some (.error e) => IO.println s!"    {e}"; pure { sources := #[] }
+    | none => pure { sources := #[] }
+  fails := fails ++ (← check "sources.json parses; kind inferred from .sqlite"
+    (sf.sources.size == 2 && sf.sources[0]!.kind == .folder && sf.sources[1]!.kind == .node))
+  fails := fails ++ (← check "Query.parse: stmt, type_hash, name"
+    (match CA.Sources.Query.parse conjStmt, CA.Sources.Query.parse conjTypeHash, CA.Sources.Query.parse "Nat.add_zero" with
+     | .stmt _, .typeHash _, .name `Nat.add_zero => true
+     | _, _, _ => false))
+  let (hs, notes) ← CA.Sources.lookupFolders sf (.stmt conjStmt)
+  fails := fails ++ (← check "lookup by stmt: Conj and conj_literal, exact"
+    (hs.map (·.entry.name) == #[`Conj, `conj_literal] && hs.all (!·.coarse)))
+  fails := fails ++ (← check "a node source is reported as the CLI's to read" (notes.size == 1))
+  let (hs, _) ← CA.Sources.lookupFolders sf (.name `cond1)
+  fails := fails ++ (← check "lookup by name: cond1 conditional on Open1"
+    (hs.size == 1 && hs[0]!.entry.status == "conditional" && hs[0]!.entry.statusDeps == #[`Open1]))
+  let (hs, _) ← CA.Sources.lookupFolders sf (.typeHash conjTypeHash)
+  fails := fails ++ (← check "lookup by type_hash: coarse matches, flagged" (hs.size == 2 && hs.all (·.coarse)))
+  -- resolve%: a term elaborated in the test environment, which holds conj_literal.
+  let elabResolve (q : String) : IO (Except String Expr) := do
+    let stx ← match Parser.runParserCategory env `term s!"resolve% \"{q}\"" with
+      | .ok stx => pure stx
+      | .error e => return .error e
+    let act : Elab.TermElabM (Except String Expr) :=
+      try
+        let e ← Elab.Term.withoutErrToSorry (Elab.Term.elabTerm stx none)
+        return .ok (← instantiateMVars e)
+      catch ex => return .error (← ex.toMessageData.toString)
+    let (r, _) ← (act.run'.run' : CoreM _).toIO { fileName := "<resolve>", fileMap := default } { env }
+    return r
+  match ← elabResolve conjStmt with
+  | .ok e => fails := fails ++ (← check "resolve% of Conj's statement is the theorem conj_literal, not the Prop"
+      (e.isConstOf `conj_literal))
+  | .error e => IO.println s!"    {e}"; fails := fails ++ (← check "resolve% elaborates" false)
+  match ← elabResolve (CA.Base58.encode (ByteArray.mk (Array.replicate 32 7))) with
+  | .ok _ => fails := fails ++ (← check "resolve% of an unbound statement fails" false)
+  | .error e => fails := fails ++ (← check "resolve% of an unbound statement fails, naming the problem"
+      ((e.splitOn "no source binds").length == 2))
+  match ← elabResolve "Nat.add_zero" with
+  | .ok _ => fails := fails ++ (← check "resolve% rejects a name" false)
+  | .error e => fails := fails ++ (← check "resolve% rejects a name" ((e.splitOn "expected a statement id").length == 2))
+  -- #ca_lookup: a command, run over the test environment; its answer is an info message.
+  let lookupMsgs : Array String ← do
+    match Parser.runParserCategory env `command "#ca_lookup \"cond1\"" with
+    | .error e => pure #[s!"parse: {e}"]
+    | .ok stx =>
+      let ctx : Elab.Command.Context :=
+        { fileName := "<lookup>", fileMap := default, snap? := none, cancelTk? := none }
+      let r ← ((Elab.Command.elabCommandTopLevel stx).run ctx |>.run (Elab.Command.mkState env)).toIO'
+      match r with
+      | .error e => pure #[s!"exception: {← e.toMessageData.toString}"]
+      | .ok (_, st') =>
+        st'.messages.toList.toArray.mapM fun m => do
+          let sev := match m.severity with
+            | .information => "information" | .warning => "warning" | .error => "error"
+          return s!"{sev}: {← m.data.toString}"
+  for m in lookupMsgs do IO.println s!"    {m.replace "\n" "\n    "}"
+  fails := fails ++ (← check "#ca_lookup answers with one info message naming cond1 conditional on Open1"
+    (lookupMsgs.size == 1 && (lookupMsgs[0]!.splitOn "conditional").length == 2 && lookupMsgs[0]!.startsWith "information"))
+  IO.Process.setCurrentDir cwd
+
   if fails.isEmpty then
     IO.println "\nAll Registry tests passed."
     return 0

@@ -34,7 +34,13 @@ Bringing a declaration that is *not* in the environment into scope
 (rebuilding it from a node file's unit) is item 2's `ca verify`
 machinery turned around; it is deliberately not in this item.
 
-Status: **not started.**
+Status: **done** (2026-10-23): `CA.Sources`, `CA.Resolve`, `ca lookup`,
+`ca fetch-sources`, node-file queries in `CA.NodeFile`; tested by
+`lake exe registry-test` (sources, lookups, `resolve%` positive and
+negative, `#ca_lookup`) and `cli/tests/node-test.sh` (`ca lookup` over a
+folder and a node source). `resolve%` prefers theorems to the
+`def _ : Prop` of an open point. Left for later: signed manifests and
+the `key` check (item 2), HTTP without `curl`.
 
 ## 2. CA alone as a checker node
 

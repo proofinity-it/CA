@@ -575,6 +575,153 @@ def checkCmd : Cli.Cmd := `[Cli|
     file : String; "The node file (SQLite)"
 ]
 
+-- Subcommands: lookup, fetch-sources (the sources list, CA.Sources)
+
+private def b58 (b : ByteArray) : String := CA.RefHash.toB58 b
+
+private def sourcesArg (p : Cli.Parsed) : System.FilePath :=
+  if p.hasFlag "sources" then p.flag! "sources" |>.as! String else CA.Sources.defaultPath
+
+private def cacheArg (p : Cli.Parsed) : System.FilePath :=
+  if p.hasFlag "cache" then p.flag! "cache" |>.as! String else CA.Sources.defaultCacheDir
+
+private def readSourcesOrExit (p : Cli.Parsed) : IO CA.Sources.SourcesFile := do
+  let path := sourcesArg p
+  match ← CA.Sources.read path with
+  | none => IO.eprintln s!"error: {path}: no such file"; IO.Process.exit 1
+  | some (.error e) => IO.eprintln s!"error: {e}"; IO.Process.exit 1
+  | some (.ok sf) => pure sf
+
+/-- `ca lookup QUERY`: what every source says about a statement id (base58),
+    a coarse hash (hex) or a name. Folder sources answer with their entries;
+    node files also with declarations and witnesses. -/
+def runLookupCmd (p : Cli.Parsed) : IO UInt32 := do
+  let q := CA.Sources.Query.parse (p.positionalArg! "query" |>.as! String)
+  let sf ← readSourcesOrExit p
+  let cacheDir := cacheArg p
+  let asJson := p.hasFlag "json"
+  let mut out : Array Lean.Json := #[]
+  let mut n := 0
+  unless asJson do IO.println s!"{q}"
+  for s in sf.sources do
+    let path := CA.Sources.localPath s cacheDir
+    match s.kind with
+    | .folder =>
+      match ← CA.Sources.readFolder path with
+      | .error e =>
+        IO.eprintln (if CA.Sources.isUrl s.location && !(← path.pathExists)
+          then s!"  {s.name}: not fetched yet; run `ca fetch-sources`" else s!"  {s.name}: {e}")
+      | .ok f =>
+        for h in CA.Sources.lookupFolder s.name f q do
+          n := n + 1
+          if asJson then
+            out := out.push (.mkObj [("source", s.name), ("project", f.project), ("toolchain", f.toolchain),
+              ("name", h.entry.name.toString), ("kind", h.entry.kind), ("status", h.entry.status),
+              ("stmt", h.entry.stmt), ("type_hash", h.entry.typeHash), ("pp_type", h.entry.ppType),
+              ("proved_by", .arr (h.entry.provedBy.map (.str ·.toString))),
+              ("status_deps", .arr (h.entry.statusDeps.map (.str ·.toString))),
+              ("coarse", .bool h.coarse)])
+          else IO.println s!"  {h.describe}"
+    | .node =>
+      unless ← path.pathExists do
+        IO.eprintln (if CA.Sources.isUrl s.location then s!"  {s.name}: not fetched yet; run `ca fetch-sources`"
+          else s!"  {s.name}: {path}: no such file")
+        continue
+      let db ← CA.NodeFile.openRead path
+      let info ← CA.NodeFile.metaOf db
+      let project := (info.find? (·.1 == "project")).map (·.2) |>.getD "?"
+      let toolchain := (info.find? (·.1 == "lean_toolchain")).map (·.2) |>.getD "?"
+      -- Entries (registry statements with a status), then declarations.
+      let entries ← match q with
+        | .stmt b => CA.NodeFile.entriesByStmt db (CA.Base58.decode b).get!
+        | .typeHash h => CA.NodeFile.entriesByTypeHash db h
+        | .name nm => CA.NodeFile.entriesByName db nm.toString
+      let decls ← match q with
+        | .stmt b => CA.NodeFile.declarationsByStmt db (CA.Base58.decode b).get!
+        | .typeHash _ => pure #[]
+        | .name nm => CA.NodeFile.declarationsByName db nm.toString
+      for e in entries do
+        n := n + 1
+        let ws ← CA.NodeFile.witnessesOf db e.stmt
+        if asJson then
+          out := out.push (.mkObj [("source", s.name), ("project", project), ("toolchain", toolchain),
+            ("name", e.name.toString), ("status", e.status), ("stmt", b58 e.stmt), ("type_hash", e.typeHash),
+            ("witnesses", .arr (ws.map (.str <| b58 ·))), ("coarse", .bool (match q with | .typeHash _ => true | _ => false))])
+        else
+          IO.println s!"  {e.name} [{s.name}, {project}, {toolchain}]: entry, {e.status}; {ws.size} witness{if ws.size == 1 then "" else "es"} in this node{match q with | .typeHash _ => " (coarse match: type_hash only)" | _ => ""}\n    stmt {b58 e.stmt}"
+      for d in decls do
+        n := n + 1
+        if asJson then
+          out := out.push (.mkObj [("source", s.name), ("project", project), ("toolchain", toolchain),
+            ("names", .arr (d.names.map (.str ·.toString))), ("kind", d.kind), ("decl", b58 d.decl),
+            ("stmt", b58 d.stmt), ("ref", b58 d.ref)])
+        else
+          IO.println s!"  {", ".intercalate (d.names.toList.map toString)} [{s.name}, {project}, {toolchain}]: {d.kind}, decl {b58 d.decl}\n    stmt {b58 d.stmt}"
+  if asJson then IO.println (Lean.Json.arr out).pretty
+  else IO.println s!"{n} {if n == 1 then "answer" else "answers"} from {sf.sources.size} source{if sf.sources.size == 1 then "" else "s"}"
+  return if n > 0 then 0 else 2
+
+def lookupCmd : Cli.Cmd := `[Cli|
+  lookup VIA runLookupCmd; ["0.2.1"]
+  "Ask every source in sources.json about a statement id (base58), a coarse hash (hex) or a name. Exit 2 when nothing answers."
+
+  FLAGS:
+    sources : String; "The sources list (default: sources.json)"
+    cache : String; "Local copies of URL sources (default: .lake/ca/sources)"
+    json; "Machine-readable output"
+
+  ARGS:
+    query : String; "stmt (base58), type_hash (hex) or a declaration name"
+]
+
+private def curl (url : String) (dest : System.FilePath) : IO Bool := do
+  let r ← IO.Process.output { cmd := "curl", args := #["-fsSL", "--retry", "2", "-o", dest.toString, url] }
+  if r.exitCode != 0 then IO.eprintln s!"  curl {url}: {r.stderr.trimAscii}"
+  return r.exitCode == 0
+
+/-- `ca fetch-sources`: copy every URL source into the cache directory
+    (folder: `declarations.json`, `statements.json`, `meta.json`; node: the
+    file). Local sources need no fetch. -/
+def runFetchSourcesCmd (p : Cli.Parsed) : IO UInt32 := do
+  let sf ← readSourcesOrExit p
+  let cacheDir := cacheArg p
+  let refresh := p.hasFlag "refresh"
+  let mut failed := 0
+  for s in sf.sources do
+    unless CA.Sources.isUrl s.location do
+      IO.println s!"  {s.name}: local ({s.location}), nothing to fetch"
+      continue
+    let dest := CA.Sources.cachePath s cacheDir
+    if !refresh && (← dest.pathExists) then
+      IO.println s!"  {s.name}: cached at {dest} (use --refresh to fetch again)"
+      continue
+    match s.kind with
+    | .node =>
+      IO.FS.createDirAll cacheDir
+      if ← curl s.location dest then IO.println s!"  {s.name}: fetched {dest}" else failed := failed + 1
+    | .folder =>
+      IO.FS.createDirAll dest
+      let base := if s.location.endsWith "/" then s.location else s.location ++ "/"
+      let mut ok := true
+      for f in ["declarations.json", "meta.json", "statements.json"] do
+        unless ← curl (base ++ f) (dest / f) do
+          if f == "declarations.json" then ok := false
+      if ok then IO.println s!"  {s.name}: fetched into {dest}"
+      else
+        failed := failed + 1
+        try IO.FS.removeDirAll dest catch _ => pure ()
+  return if failed == 0 then 0 else 1
+
+def fetchSourcesCmd : Cli.Cmd := `[Cli|
+  "fetch-sources" VIA runFetchSourcesCmd; ["0.2.1"]
+  "Copy the URL sources of sources.json into the local cache."
+
+  FLAGS:
+    sources : String; "The sources list (default: sources.json)"
+    cache : String; "Cache directory (default: .lake/ca/sources)"
+    refresh; "Fetch again even if a copy exists"
+]
+
 -- Subcommand: selftest
 
 /-- Cross-check the OpenSSL hasher against the library's pure SHA-256 and
@@ -619,6 +766,8 @@ def caCmd : Cli.Cmd := `[Cli|
     registryCmd;
     packCmd;
     checkCmd;
+    lookupCmd;
+    fetchSourcesCmd;
     selftestCmd
 ]
 

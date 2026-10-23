@@ -298,8 +298,10 @@ during a check or build is the same mechanism.
   counts, statements only or with witnesses), policy (unsigned records
   accepted or not; read-only or not).
 - A **sources list** is a list of manifests, or URLs serving them, with
-  the expected signing key for each. CA's planned `sources.json` is
-  exactly this. A reader merges the lists it trusts.
+  the expected signing key for each. CA's `sources.json` is this list
+  without the manifests yet: name, kind (folder or node), location, and
+  an optional key that is parsed but not checked. A reader merges the
+  lists it trusts.
 
 ## 12. Transports and store formats
 
@@ -465,7 +467,8 @@ bytes and `ref` map per entry, so a folder is a node readable on the
 same toolchain; **done**, `statements.json`); `ca pack` (**done**, with
 `ca check`) producing the SQLite form from a folder and
 an environment; `tools/registry_ref.py` (**content checks done**, §14);
-`sources.json`; the two
+`sources.json` (**done**, with `ca lookup`, `#ca_lookup` and `resolve%`);
+the two
 measurements (`stmt` survival across a toolchain bump, with and without
 the core cut; the full-mode versus statement-mode `stmt` mismatch rate
 from `spec.md` §13).

@@ -8,10 +8,15 @@
 > (each entry's statement as a unit, [payload.md](payload.md)), `meta.json`
 > with counts, toolchain and encoding-scheme version; the two-tier key
 > (`stmt` exact, `type_hash` coarse) with the cached statement cone.
-> **Not implemented:** `sources.json`, the resolution protocol (`use`,
-> `resolve%`, `use!`), the registry cache, cross-project cascade and
-> impact ranking, `--all` / `--dry-run` / `--level` generation flags,
-> address-valued dependencies. Sections below describing those are plans.
+> `sources.json`, `#ca_lookup`, `resolve%` and `ca lookup` exist
+> ([usage.md](usage.md) step 6): a project lists the registries it
+> consults and asks them by statement id, coarse hash or name; `resolve%`
+> gives the proof a source binds to a statement when it is in scope.
+> **Not implemented:** `use` / `use!` (bringing a declaration that is not
+> in scope in from a node file), the registry cache beyond fetched
+> copies, cross-project cascade and impact ranking, `--all` /
+> `--dry-run` / `--level` generation flags, address-valued dependencies.
+> Sections below describing those are plans.
 
 > **See also** [registry-protocol.md](registry-protocol.md), the draft
 > protocol under which this folder (packed into a file, a static node)
@@ -78,10 +83,10 @@ CA/
 │       ├── Basic.lean             # entry types, extensions, query API
 │       ├── Attributes.lean        # @[publish], @[open_point]
 │       ├── Generate.lean          # #ca_registry: classify, JSON output
-│       ├── Resolve.lean           # use, use!, resolve% elaborators (planned)
-│       └── Sources.lean           # sources.json parsing, cache management (planned)
+│   ├── Sources.lean               # sources.json, folder sources, lookups
+│   └── Resolve.lean               # #ca_lookup, resolve% (use / use! planned)
+├── nodefile/                      # the node file as SQLite: separate package
 ├── cli/                           # `ca` CLI: separate package (Redis, OpenSSL)
-├── sources.json                   # default sources list (planned)
 └── docs/
     └── ...
 ```

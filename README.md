@@ -39,9 +39,12 @@ its in Redis). `ca pack` writes a project's node file and `ca check`
 checks one without trusting it ([`docs/cli.md`](docs/cli.md); the format
 is [`docs/payload.md`](docs/payload.md), draft 2). So does
 `tools/registry_ref.py`, an independent checker in Python's standard
-library written from the documents alone. Reading other
-projects' nodes into a build comes next
-([`registry-protocol.md`](docs/registry-protocol.md) §17).
+library written from the documents alone. Reading them back: a
+project lists the registries it consults in `sources.json`; `ca lookup`
+asks every one of them about a statement id, a coarse hash or a name,
+`#ca_lookup` does the same inside Lean, and `resolve% "<stmt>"` is the
+proof a source binds to that statement, checked against the current
+environment ([`docs/usage.md`](docs/usage.md)).
 
 Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
 is normative for the ids: the bytes of `stmt`, `decl` and `ref` under
@@ -127,8 +130,10 @@ The full table, with bindings and verification records, is in
 
 Status: v0.2.1. The encoding scheme is versioned (`meta.json` and every
 id preimage carry it), so a later scheme can coexist with this one; a
-registry is publishable as a folder or as a node file, and a node file is
-checkable, but nothing yet consumes one in a build; the API may still change.
+registry is publishable as a folder or as a node file, a node file is
+checkable, and a build can look statements up in the registries it lists;
+kernel-checked records and merge are next ([`docs/plan.md`](docs/plan.md));
+the API may still change.
 
 Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.2.1"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with

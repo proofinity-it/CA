@@ -29,6 +29,11 @@ ca address --level 1
 # Single declaration lookup (checks Redis first, falls back to env)
 ca address --name Nat.add_comm
 
+# Ask every source in sources.json about a statement, a coarse hash or a name
+ca lookup ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn
+ca lookup Nat.add_zero --json
+ca fetch-sources                         # copy URL sources into .lake/ca/sources
+
 # Check that the OpenSSL hasher agrees with the library's pure SHA-256
 ca selftest
 ```
@@ -69,6 +74,25 @@ from the names it gives, are the unit's. Reports naming variants and
 units with names hashed by name, lists faults, and exits 1 if there are
 any. Measured: all of `Init` (65,972 declarations with proofs, 114 MB)
 packs in about 2.5 min and checks in about 30 s.
+
+## `lookup`
+
+`ca lookup QUERY` reads the project's `sources.json` ([usage.md](usage.md)
+step 6) and asks every source, in order, about `QUERY`: a `stmt` (base58,
+32 bytes), a `type_hash` (64 hex digits) or a declaration name. A folder
+source answers with its entries (status, `proved_by`, `status_deps`, the
+pretty-printed statement). A node file answers with its entries and
+their witnesses, and with every declaration bound to the name or
+carrying the statement, twins included. `--json` prints one object per
+answer. Exit status 2 when nothing answers. `--sources` and `--cache`
+override the list and the cache directory.
+
+## `fetch-sources`
+
+Copies every URL source of `sources.json` into `.lake/ca/sources/`
+(a folder's `declarations.json`, `meta.json` and `statements.json`; a
+node's file), with `curl`. A fetched copy is reused until `--refresh`.
+Local sources need no fetch.
 
 ## `fetch`
 

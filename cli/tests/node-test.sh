@@ -49,5 +49,22 @@ c.execute("UPDATE declarations SET stmt = ? WHERE decl = ?", (b"\x00" * 32, d))'
 tamper "replaced ref id" '
 c.execute("UPDATE refs SET ref = ? WHERE ix = 0", (b"\x11" * 32,))'
 
+# `ca lookup` over a sources list naming the folder and a node file.
+lake env "$ca" pack -m Fixture --own -o node.sqlite >/dev/null 2>&1
+cat > sources.json <<'EOF'
+{ "sources": [
+  { "name": "fixture-folder", "kind": "folder", "location": "registry" },
+  { "name": "fixture-node", "location": "node.sqlite" } ] }
+EOF
+conj=$(python3 -I -c "import json,sys;print([e['stmt'] for e in json.load(open(sys.argv[1])) if e['name']=='Conj'][0])" registry/declarations.json)
+out=$("$ca" lookup "$conj" 2>&1) && echo "$out" | grep -q 'Conj \[fixture-folder' && echo "$out" | grep -q 'conj_literal \[fixture-node.*1 witness' \
+  && ok "ca lookup by stmt: folder and node sources answer" || { bad "ca lookup by stmt"; echo "$out"; }
+out=$("$ca" lookup cond1 2>&1) && echo "$out" | grep -q 'conditional assuming #\[Open1\]' && ok "ca lookup by name: status and assumptions" || bad "ca lookup by name"
+out=$("$ca" lookup Color.swap 2>&1) && echo "$out" | grep -q 'Color.swap \[fixture-node.*definition' && ok "ca lookup by name: an unannotated declaration, from the node only" || bad "ca lookup Color.swap"
+rc=0; "$ca" lookup nothing.here >/dev/null 2>&1 || rc=$?; [ "$rc" = 2 ] && ok "ca lookup: exit 2 when nothing answers" || bad "ca lookup exit code ($rc)"
+"$ca" lookup --json cond1 | python3 -I -c "import json,sys; j=json.load(sys.stdin); assert any(h.get('status')=='conditional' for h in j)" && ok "ca lookup --json parses" || bad "ca lookup --json"
+"$ca" fetch-sources >/dev/null 2>&1 && ok "ca fetch-sources: local sources need no fetch" || bad "ca fetch-sources"
+rm -f sources.json
+
 rm -f node*.sqlite
 if [ "$fail" = 0 ]; then echo "node-test: all passed"; else echo "node-test: FAILED"; exit 1; fi

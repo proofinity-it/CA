@@ -29,7 +29,9 @@ def schema : Array String := #[
   "CREATE TABLE declarations (decl BLOB PRIMARY KEY, kind TEXT NOT NULL, stmt BLOB NOT NULL, ref BLOB NOT NULL) WITHOUT ROWID",
   "CREATE TABLE witnesses (stmt BLOB NOT NULL, decl BLOB NOT NULL, PRIMARY KEY (stmt, decl)) WITHOUT ROWID",
   "CREATE TABLE entries (name INTEGER PRIMARY KEY REFERENCES names, stmt BLOB NOT NULL, status TEXT NOT NULL, type_hash TEXT NOT NULL)",
-  "CREATE INDEX members_by_unit ON members (unit)"]
+  "CREATE INDEX members_by_unit ON members (unit)",
+  "CREATE INDEX declarations_by_stmt ON declarations (stmt)",
+  "CREATE INDEX names_by_display ON names (display)"]
 
 def nameBytes (n : Name) : ByteArray := putName .empty n
 
@@ -132,5 +134,93 @@ def readNode (path : System.FilePath) : IO CA.Node.Node := do
     return { name := ← nameAt (← st.columnInt64 0), stmt := ← st.columnBlob 1,
              status := ← st.columnText 2, typeHash := ← st.columnText 3 : EntryRow }
   return { info, table, units, members, decorations, declarations, witnesses, entries }
+
+/-! ## Queries
+
+Answers over one node file without reading it whole (`registry-protocol.md`
+§10): the entries, declarations and witnesses behind a statement id, a
+coarse hash or a name. `ca lookup` asks these of every node source. -/
+
+/-- A registry entry row, with its name resolved. -/
+structure EntryHit where
+  name : Name
+  stmt : ByteArray
+  status : String
+  typeHash : String
+  deriving Inhabited
+
+/-- A declaration row with the names the file binds it to. -/
+structure DeclHit where
+  decl : ByteArray
+  kind : String
+  stmt : ByteArray
+  ref : ByteArray
+  names : Array Name
+  deriving Inhabited
+
+def openRead (path : System.FilePath) : IO SQLite := do
+  unless ← path.pathExists do throw (IO.userError s!"{path}: no such file")
+  SQLite.openWith path .readonly
+
+private def rowsOf {α : Type} (db : SQLite) (sql : String) (bind : SQLite.Stmt → IO Unit)
+    (read : SQLite.Stmt → IO α) : IO (Array α) := do
+  let st ← db.prepare sql
+  bind st
+  let mut out := #[]
+  while ← st.step do out := out.push (← read st)
+  return out
+
+def metaOf (db : SQLite) : IO (Array (String × String)) :=
+  rowsOf db "SELECT key, value FROM meta ORDER BY key" (fun _ => pure ()) fun st => do
+    return (← st.columnText 0, ← st.columnText 1)
+
+private def readEntry (st : SQLite.Stmt) : IO EntryHit := do
+  return { name := ← nameOfBytes (← st.columnBlob 0), stmt := ← st.columnBlob 1,
+           status := ← st.columnText 2, typeHash := ← st.columnText 3 }
+
+private def entrySelect := "SELECT n.name, e.stmt, e.status, e.type_hash FROM entries e JOIN names n ON e.name = n.ix"
+
+def entriesByStmt (db : SQLite) (stmt : ByteArray) : IO (Array EntryHit) :=
+  rowsOf db (entrySelect ++ " WHERE e.stmt = ?1 ORDER BY n.display") (·.bindBlob 1 stmt) readEntry
+
+def entriesByTypeHash (db : SQLite) (typeHash : String) : IO (Array EntryHit) :=
+  rowsOf db (entrySelect ++ " WHERE e.type_hash = ?1 ORDER BY n.display") (·.bindText 1 typeHash) readEntry
+
+def entriesByName (db : SQLite) (display : String) : IO (Array EntryHit) :=
+  rowsOf db (entrySelect ++ " WHERE n.display = ?1") (·.bindText 1 display) readEntry
+
+/-- Every name the file binds to `decl` (twins are several). -/
+def namesOfDecl (db : SQLite) (decl : ByteArray) : IO (Array Name) :=
+  rowsOf db "SELECT n.name FROM members m JOIN names n ON m.name = n.ix WHERE m.decl = ?1 ORDER BY n.display"
+    (·.bindBlob 1 decl) fun st => do nameOfBytes (← st.columnBlob 0)
+
+private def withNames (db : SQLite) (rows : Array (ByteArray × String × ByteArray × ByteArray)) :
+    IO (Array DeclHit) :=
+  rows.mapM fun (decl, kind, stmt, ref) => do
+    return { decl, kind, stmt, ref, names := ← namesOfDecl db decl }
+
+private def readDeclRow (st : SQLite.Stmt) : IO (ByteArray × String × ByteArray × ByteArray) := do
+  return (← st.columnBlob 0, ← st.columnText 1, ← st.columnBlob 2, ← st.columnBlob 3)
+
+/-- The declarations whose statement is `stmt`: theorems proving it, or the
+    definition it is the type of. -/
+def declarationsByStmt (db : SQLite) (stmt : ByteArray) : IO (Array DeclHit) := do
+  withNames db (← rowsOf db "SELECT decl, kind, stmt, ref FROM declarations WHERE stmt = ?1 ORDER BY decl"
+    (·.bindBlob 1 stmt) readDeclRow)
+
+def declaration (db : SQLite) (decl : ByteArray) : IO (Option DeclHit) := do
+  let rows ← withNames db (← rowsOf db "SELECT decl, kind, stmt, ref FROM declarations WHERE decl = ?1"
+    (·.bindBlob 1 decl) readDeclRow)
+  return rows[0]?
+
+/-- The declarations bound to a name (its dotted rendering). -/
+def declarationsByName (db : SQLite) (display : String) : IO (Array DeclHit) := do
+  withNames db (← rowsOf db
+    "SELECT d.decl, d.kind, d.stmt, d.ref FROM members m JOIN names n ON m.name = n.ix JOIN declarations d ON d.decl = m.decl WHERE n.display = ?1 ORDER BY d.decl"
+    (·.bindText 1 display) readDeclRow)
+
+/-- Witness `decl`s of `stmt` (theorems with that statement). -/
+def witnessesOf (db : SQLite) (stmt : ByteArray) : IO (Array ByteArray) :=
+  rowsOf db "SELECT decl FROM witnesses WHERE stmt = ?1 ORDER BY decl" (·.bindBlob 1 stmt) (·.columnBlob 0)
 
 end CA.NodeFile
