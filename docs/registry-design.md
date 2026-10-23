@@ -53,9 +53,10 @@ Three pieces compose the system, all living in the `CA` repository:
    `#ca_registry` command (also `ca registry` in the CLI) that scans the
    environment and writes the local registry folder.
 
-3. **The sources list** (planned) — a file listing known registry-hosting
-   GitHub repositories, which resolution tools (`use`, `resolve%`, also
-   planned) consult to find declarations across the ecosystem.
+3. **The sources list** — `sources.json`, the registries a project
+   consults (folders or node files, paths or URLs), read by `#ca_lookup`,
+   `resolve%` and `ca lookup` ([usage.md](usage.md) step 6). A curated
+   default list, and `use` for declarations not in scope, are planned.
 
 ### Module layout
 
@@ -99,8 +100,8 @@ registry entries, and `#ca_registry` uses `CA.ExprHash`
 directly. Keeping them in separate repos means version-syncing two
 packages that share core logic.
 
-A single repo with two Lake packages — the library at the root, the
-CLI in `cli/` — gives both:
+A single repo with three Lake packages — the library at the root, the
+node file in `nodefile/`, the CLI in `cli/` — gives both:
 
 - **One dependency** for downstream projects (`require ca`), and a pure
   Lean one: the library has no native dependencies.
@@ -296,11 +297,13 @@ statement changes, a new entry with a new address is added and the old
 one remains as history; status updates (open → proved) are the only
 in-place mutation.
 
-## Sources List (planned)
+## Sources List
 
-The sources list is a JSON file enumerating known registry-hosting
-repositories. A default `sources.json` ships with the `CA` package; users
-can override it with a project-local `sources.json`.
+A project-local `sources.json` exists ([usage.md](usage.md) step 6):
+sources are folders or node files, by path or URL, fetched by
+`ca fetch-sources`. What follows is the older design of a *curated*
+default list shipping with CA, still a plan; its JSON shape below differs
+from the implemented file (`sources` with `name`, `kind`, `location`, `key`).
 
 ### `sources.json`
 
@@ -354,10 +357,13 @@ later:
 The static list is the right starting point. It can be replaced later
 without changing any other part of the design.
 
-## Resolution Protocol (planned)
+## Resolution Protocol (partly implemented)
 
-When a user writes `use Nat.add_comm` or `resolve% Nat.add_comm`, the
-resolution proceeds in stages:
+Implemented: `resolve% "<stmt>"` gives the proof a source binds to a
+statement when the constant is in the environment and recomputes to that
+`stmt`; `#ca_lookup` and `ca lookup` answer by `stmt`, `type_hash` or
+name. Planned, below: `use`, resolution by name, a cache beyond fetched
+copies, and fetching a declaration into scope. The staged design:
 
 ```
 1. Check local environment
@@ -536,9 +542,9 @@ registry honest.
 | **Storage** | `registry/` folder in each project's git repo |
 | **Publication** | `git push` |
 | **Verification** | `lake build` (Lean's kernel) |
-| **Discovery** | Static `sources.json` listing known repos (planned) |
-| **Resolution** | `use` / `resolve%` queries local cache, fetches from sources on miss (planned) |
+| **Discovery** | Each project's `sources.json` (implemented); a curated default list (planned) |
+| **Resolution** | `resolve%`, `#ca_lookup`, `ca lookup` over the sources (implemented); `use`, fetch into scope (planned) |
 | **Consensus** | Monotonic: one valid proof is enough |
-| **Coordination** | Minimal: PR to add one line to `sources.json` (planned) |
+| **Coordination** | None required: a reader lists the registries it trusts; a curated list by PR (planned) |
 | **Cascade** | Within one registry: implemented. Across registries: emerges from the union, computed locally (planned) |
 | **Versioning** | Toolchain and encoding scheme recorded per registry (`meta.json`); the name-based L0 hash is stable across versions |

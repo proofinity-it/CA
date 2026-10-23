@@ -423,7 +423,7 @@ file it writes, signed and unsigned, intact and tampered.
 
 From declbuild's `DeclBuild/Cli/Peer.lean`, `docs/redis-schema.md`,
 `docs/attestations.md`, `docs/relative-verification.md`, 2026-10-23.
-Where CA itself now provides the piece (v0.2.0), the row says so.
+Where CA itself now provides the piece (v0.3.0), the row says so.
 
 | item | today (declbuild) | required here | priority |
 |---|---|---|---|

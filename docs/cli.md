@@ -1,7 +1,8 @@
 # The `ca` command-line tool
 
-The `ca` executable provides registry generation, node files, and batch
-indexing. It is a separate Lake package in [`cli/`](../cli/) so that the
+The `ca` executable provides registry generation, node files (pack,
+check, kernel verification with signed records, merge, reconciliation,
+migration), lookups over a sources list, keys, and batch indexing. It is a separate Lake package in [`cli/`](../cli/) so that the
 `CA` library stays pure Lean; it owns the native dependencies (OpenSSL,
 Redis through redis-lean, SQLite through leansqlite) and is built with
 `cd cli && lake build` (see [building.md](building.md)).

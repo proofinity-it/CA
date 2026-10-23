@@ -53,8 +53,10 @@ scheme 1, with test vectors and an independent reimplementation.
 the protocol between independent registries: statements as first-class
 objects, verification relative to stated assumptions, checkers and
 mirrors, signed names, and one SQLite file as the published form of a
-node. Today a registry can be generated; reading other projects'
-registries is specified but not yet implemented.
+node. Of that protocol, the node file, its checks (`ca check`, `ca verify`
+with kernel-checked, signed records), signed names and merge exist today;
+the derivation of "proved" across several nodes and over trusted signers
+does not yet ([`docs/plan.md`](docs/plan.md)).
 
 ## One theorem, several objects
 
@@ -115,7 +117,7 @@ The full table, with bindings and verification records, is in
 |---|---|
 | [What it is for](docs/what-it-is-for.md) | the questions a result's address answers: referencing a result you cannot locate, "already proved?", citing across refactors, detecting weakened statements, alternative proofs, incremental work, metadata, decentralised publication |
 | [Using CA in your project](docs/usage.md) | adding the dependency, `@[publish]` / `@[open_point]`, statuses, generating and publishing `registry/` |
-| [The `ca` CLI](docs/cli.md) | `registry`, `fetch`, `address`, `selftest` |
+| [The `ca` CLI](docs/cli.md) | `registry`, `pack`, `check`, `verify`, `lookup`, `fetch-sources`, `keygen`, `merge`, `digest`, `diff`, `migrate`, `fetch`, `address`, `selftest` |
 | [Building and dependencies](docs/building.md) | the three Lake packages, Nix and Ubuntu builds, tests, toolchain and versioning |
 | [Modules](docs/modules.md) | the library's modules and what each implements |
 | [Scope and related work](docs/scope.md) | where CA is used, LeanArchitect, what an address covers and what it cannot (incl. the closed-term / α-equivalence caveat) |
@@ -125,15 +127,15 @@ The full table, with bindings and verification records, is in
 | [Payloads (draft)](docs/payload.md) | the stored form of a declaration in a node file: canonical units the ids are recomputed from, decorations for names, the measured size |
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
-| [Development plan](docs/plan.md) | what is left to build, in order: consuming a node, CA as a checker, merge and reconciliation, CI and fuzzing, scale, toolchain migration |
+| [Development plan](docs/plan.md) | the seven work items, each with what it delivers and its status: consuming a node, CA as a checker, merge and reconciliation, CI and fuzzing, scale, toolchain migration, the example project |
 | [All documents](docs/README.md) | index with the status of each |
 
 Status: v0.3.0. The encoding scheme is versioned (`meta.json` and every
 id preimage carry it), so a later scheme can coexist with this one; a
-registry is publishable as a folder or as a node file, a node file is
-checkable, and a build can look statements up in the registries it lists;
-kernel-checked records and merge are next ([`docs/plan.md`](docs/plan.md));
-the API may still change.
+registry is publishable as a folder or as a node file; a node file is
+checkable, kernel-verifiable with signed records, and mergeable; a build
+can look statements up in the registries it lists. Left:
+[`docs/plan.md`](docs/plan.md). The API may still change.
 
 Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.0"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with

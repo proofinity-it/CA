@@ -41,7 +41,7 @@ of all project-local registries — no central server required.
 - **Publication** is `git push`
 - **Verification** is `lake build` (Lean's kernel is the authority)
 - **Consensus** is trivial: one valid proof is enough
-- **Discovery** will be a curated `sources.json` listing known repos (not implemented yet)
+- **Discovery** is each project's `sources.json`, the registries it consults ([usage.md](usage.md) step 6); a curated default list does not exist yet
 
 Authors annotate their code with `@[publish]` and `@[open_point]`
 attributes; `#ca_registry` (or `ca registry`) scans the environment,
@@ -50,10 +50,10 @@ conditional / definition / axiom) and writes the registry folder during
 `lake build`.
 Both paths share one generation core and produce byte-identical
 registries; attribute descriptions are recorded in `declarations.json`.
-Resolution from the other side — `use`, `resolve%`, and reading other
-projects' registries through `sources.json` — is designed but not yet
-implemented, so today the registry is publishable but not yet
-consumable.
+From the other side, `#ca_lookup` and `resolve%` read the registries
+listed in `sources.json` inside Lean, and `ca lookup` reads node files
+too ([usage.md](usage.md) step 6). `use`, which would bring a
+declaration that is not in scope in from a node file, is not implemented.
 
 **The registry key has two tiers.** Each entry carries `stmt`, the
 exact `RefHash` statement id (base58): references are embedded by their

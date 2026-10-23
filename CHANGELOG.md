@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- README and docs brought in line with v0.3.0: the CLI row lists every
+  subcommand; `how-it-works.md`, `registry-design.md` and the README no
+  longer call discovery and resolution unimplemented; three Lake packages.
+
 ## v0.3.0 — 2026-10-23 — a node you can consume, check, sign and merge
 
 Ids are unchanged (encoding scheme 1, as v0.1.0 to v0.2.1). The `ca` CLI
