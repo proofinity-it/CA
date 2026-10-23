@@ -10,7 +10,7 @@ anything outside this repository: `ca` is required by path, and
 |---|---|
 | [`publish/`](publish) | a project that marks open points and theorems with `@[open_point]` / `@[publish]`; `lake build` writes `registry/`, committed here so the output can be read without building |
 | [`consume/`](consume) | a project that requires `publish`, lists its registry in `sources.json`, asks it with `#ca_lookup`, cites a result by address with `resolve%`, and proves one of its open points, so its own registry shows the cross-project cascade |
-| [`walkthrough.sh`](walkthrough.sh) | the CLI over the two: pack, check (Lean and Python), verify with signed records, sign names, merge, diff, lookup |
+| [`walkthrough.sh`](walkthrough.sh) | the CLI over the two: pack, check (Lean and Python), sign names, verify with signed records, merge, diff, lookup; explained step by step in [`docs/walkthrough.md`](../docs/walkthrough.md) |
 
 ## Reading order
 
@@ -30,10 +30,11 @@ anything outside this repository: `ca` is required by path, and
    conditional there, are `proved` here. That is the cross-project
    cascade, computed by the consumer over the union it holds.
 4. `bash walkthrough.sh` (after `cd cli && lake build`): the same two
-   projects as node files. Step 5 is the one that matters most: the
-   kernel re-checks every declaration rebuilt from the file, and each
-   theorem gets a signed record saying what was assumed and which axioms
-   it rests on.
+   projects as node files, nine steps, each explained with its output in
+   [`docs/walkthrough.md`](../docs/walkthrough.md). Step 6 is the one
+   that matters most: the kernel re-checks every declaration rebuilt from
+   the file, and each theorem gets a signed record saying what was
+   assumed and which axioms it rests on.
 
 ## Running
 

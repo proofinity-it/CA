@@ -27,15 +27,16 @@ run lake env "$ca" pack -m Publish --own -o "$work/publish.sqlite"
 run "$ca" check "$work/publish.sqlite"
 run python3 -I "$here/../tools/registry_ref.py" "$work/publish.sqlite"
 
-step "5. the kernel's verdict: every declaration rebuilt and re-checked; a record per theorem, signed"
+step "5. a key, and a signed pack: a namespace claim and one binding per entry"
 run "$ca" keygen "$work/example.key"
-run lake env "$ca" verify "$work/publish.sqlite" --write --sign "$work/example.key"
-
-step "6. sign the names too: a namespace claim and one binding per entry"
 run lake env "$ca" pack -m Publish --own --sign "$work/example.key" --label publish -o "$work/publish-signed.sqlite"
 run "$ca" check "$work/publish-signed.sqlite"
 
-step "7. consume's node, merged with publish's: one file, ids unchanged, checked"
+step "6. the kernel's verdict: every declaration rebuilt and re-checked; a signed record per theorem, written into the file"
+run lake env "$ca" verify "$work/publish-signed.sqlite" --write --sign "$work/example.key"
+run python3 -I "$here/../tools/registry_ref.py" "$work/publish-signed.sqlite"
+
+step "7. consume's node, merged with publish's: one file, ids unchanged, records and bindings carried, checked"
 cd "$here/consume"
 run lake env "$ca" pack -m Consume --own -o "$work/consume.sqlite"
 run "$ca" merge "$work/union.sqlite" "$work/publish-signed.sqlite" "$work/consume.sqlite"

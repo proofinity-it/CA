@@ -128,7 +128,7 @@ The full table, with bindings and verification records, is in
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
 | [Development plan](docs/plan.md) | the seven work items, each with what it delivers and its status: consuming a node, CA as a checker, merge and reconciliation, CI and fuzzing, scale, toolchain migration, the example project |
-| [Examples](examples/README.md) | two small projects: one publishes a registry (committed, readable without building), the other lists it in `sources.json` and cites a result by address with `resolve%`; a walkthrough script packs, checks, verifies, signs and merges |
+| [Examples](examples/README.md) | two small projects: one publishes a registry (committed, readable without building), the other lists it in `sources.json` and cites a result by address with `resolve%`; a walkthrough script packs, checks, verifies, signs and merges ([explained step by step](docs/walkthrough.md)) |
 | [All documents](docs/README.md) | index with the status of each |
 
 Status: v0.3.0. The encoding scheme is versioned (`meta.json` and every
