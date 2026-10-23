@@ -1,11 +1,12 @@
 # Building and dependencies
 
-The repository holds two Lake packages:
+The repository holds three Lake packages:
 
 | Directory | Package | Contents | Native deps |
 |---|---|---|---|
 | `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test`, `node-test` | **none**: pure Lean, Batteries only |
-| `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on a fixture project) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite is bundled by leansqlite |
+| `nodefile/` | `ca-nodefile` | `CaNodeFile`: the node file as SQLite (`CA.NodeFile.writeNode` / `readNode`, `registry-protocol.md` §12); required by `cli/` and by stores that write node files (declbuild) | none to install: leansqlite bundles the SQLite amalgamation (needs a C compiler `cc`) |
+| `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on a fixture project) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite through `nodefile/` |
 
 The library is what downstream projects `require`; it hashes with a
 pure-Lean SHA-256 and needs no system headers or link flags on any
@@ -69,7 +70,7 @@ The CLI's link flags name the Ubuntu library locations
 | [batteries](https://github.com/leanprover-community/batteries) | library | `NameMapExtension` for registry attributes |
 | [lean4-cli](https://github.com/leanprover/lean4-cli) | `cli/` | argument parsing |
 | [redis-lean](https://github.com/proofinity-it/redis-lean) | `cli/` | Redis (hiredis) for `fetch`/`address` |
-| [leansqlite](https://github.com/leanprover/leansqlite) | `cli/` | SQLite for node files (`pack` / `check`); bundles the SQLite amalgamation, so no system library; needs a C compiler `cc` |
+| [leansqlite](https://github.com/leanprover/leansqlite) | `nodefile/` | SQLite for node files (`pack` / `check`); bundles the SQLite amalgamation, so no system library; needs a C compiler `cc` |
 | OpenSSL (`libssl`, `libcrypto`) | `cli/` | SHA-256 accelerator (`CA.SHA256.FFI`) |
 
 A project that `require`s `ca` fetches Batteries and nothing else: Lake

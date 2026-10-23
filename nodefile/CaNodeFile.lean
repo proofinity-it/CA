@@ -6,6 +6,9 @@ import SQLite
 
 `registry-protocol.md` §12 and `docs/payload.md` §6. `writeNode` writes
 the rows of a `CA.Node.Node` to a new file; `readNode` reads them back.
+A package of its own (`ca-nodefile`, in `nodefile/`) so that `require ca`
+stays pure Lean: leansqlite compiles the SQLite amalgamation. The `ca`
+CLI and declbuild both require it.
 Ids and digests are 32-byte blobs. Names live once in `names`, as
 `nm`-encoded blobs (`payload.md` §2) with a `display` column holding the
 dotted rendering for people and SQL queries; every other table cites
@@ -14,7 +17,7 @@ them by position. Members cite their unit by row id.
 
 open Lean CA.Node CA.Payload
 
-namespace CaCli.NodeFile
+namespace CA.NodeFile
 
 def schema : Array String := #[
   "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
@@ -130,4 +133,4 @@ def readNode (path : System.FilePath) : IO CA.Node.Node := do
              status := ← st.columnText 2, typeHash := ← st.columnText 3 : EntryRow }
   return { info, table, units, members, decorations, declarations, witnesses, entries }
 
-end CaCli.NodeFile
+end CA.NodeFile

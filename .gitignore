@@ -1,5 +1,6 @@
 /.lake
 /cli/.lake
+/nodefile/.lake
 output/
 result
 .vscode/

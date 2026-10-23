@@ -12,6 +12,12 @@
   it. `lake exe node-test`: the two paths give the same rows byte for
   byte, `checkNode` finds no fault, the partial block is refused. An
   `Init --all` pack is unchanged (55,757 units).
+- The node file's SQLite code moves from `cli/` into its own package,
+  `nodefile/` (`ca-nodefile`, module `CaNodeFile`, namespace
+  `CA.NodeFile`), so a store can write and read node files without the
+  CLI's dependencies: `require «ca-nodefile» from git
+  "https://github.com/proofinity-it/CA" @ TAG / "nodefile"`. The library
+  stays pure Lean; the CLI requires the new package.
 - `registry-protocol.md` §15 brought up to date with declbuild
   (2026-10-23: `sorryAx` gate, scheme separation done) and with what CA
   v0.2.0 itself provides (statement units, node files, `ca check`).

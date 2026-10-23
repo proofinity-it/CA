@@ -1,6 +1,6 @@
 import CA
 import CaCli.SHA256FFI
-import CaCli.NodeFile
+import CaNodeFile
 import Lean
 import Lean.Util.Path
 import Cli
@@ -527,7 +527,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
   let t0 ← IO.monoMsNow
   let (node, rep) ← CA.Node.packEnvironment env roots withProofs fastHasher (info := info)
   let t1 ← IO.monoMsNow
-  CaCli.NodeFile.writeNode output node
+  CA.NodeFile.writeNode output node
   let size := (← System.FilePath.metadata output).byteSize
   IO.eprintln s!"Wrote {output}: {rep.declarations} declarations in {rep.units} units, {rep.statements} registry statements; {node.table.refs.size} refs, {node.table.names.size} names; {size} bytes ({(t1 - t0) / 1000} s)"
   if rep.unresolved > 0 then
@@ -553,7 +553,7 @@ def packCmd : Cli.Cmd := `[Cli|
 def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
   let path := p.positionalArg! "file" |>.as! String
   let t0 ← IO.monoMsNow
-  let node ← CaCli.NodeFile.readNode path
+  let node ← CA.NodeFile.readNode path
   let rep ← CA.Node.checkNode node fastHasher
   let t1 ← IO.monoMsNow
   for (k, v) in node.info do IO.println s!"  {k}: {v}"

@@ -3,7 +3,7 @@ open System Lake DSL
 
 /-! `ca` command-line tool: batch indexing into Redis (`fetch`, `address`),
 JSON manifests, registry generation (`registry`), node files (`pack`,
-`check`; SQLite through leansqlite), and `selftest`.
+`check`; the `ca-nodefile` package in `../nodefile`), and `selftest`.
 
 A separate package from the library in `..` so that `require ca` stays
 pure Lean. This package owns every native dependency: OpenSSL (the
@@ -24,10 +24,9 @@ require Cli from git
 require redisLean from git
   "https://github.com/proofinity-it/redis-lean" @ "v4.35.0-3"
 
-/-- SQLite for the node file (`ca pack` / `ca check`). Bundles the SQLite
-    amalgamation: no system library. -/
-require leansqlite from git
-  "https://github.com/leanprover/leansqlite" @ "v4.35.0"
+/-- The node file (`ca pack` / `ca check`): `CaNodeFile` (namespace `CA.NodeFile`), SQLite through
+    leansqlite (bundled amalgamation, no system library). -/
+require «ca-nodefile» from "../nodefile"
 
 /-- OpenSSL-backed `CA.SHA256.FFI.sha256`. -/
 lean_lib CaCli
