@@ -113,7 +113,7 @@ The full table, with bindings and verification records, is in
 | [What it is for](docs/what-it-is-for.md) | the questions a result's address answers: referencing a result you cannot locate, "already proved?", citing across refactors, detecting weakened statements, alternative proofs, incremental work, metadata, decentralised publication |
 | [Using CA in your project](docs/usage.md) | adding the dependency, `@[publish]` / `@[open_point]`, statuses, generating and publishing `registry/` |
 | [The `ca` CLI](docs/cli.md) | `registry`, `fetch`, `address`, `selftest` |
-| [Building and dependencies](docs/building.md) | the two Lake packages, Nix and Ubuntu builds, tests, toolchain and versioning |
+| [Building and dependencies](docs/building.md) | the three Lake packages, Nix and Ubuntu builds, tests, toolchain and versioning |
 | [Modules](docs/modules.md) | the library's modules and what each implements |
 | [Scope and related work](docs/scope.md) | where CA is used, LeanArchitect, what an address covers and what it cannot (incl. the closed-term / α-equivalence caveat) |
 | [Worked example](docs/worked-example.md) | the banner's address computed byte by byte |
@@ -122,6 +122,7 @@ The full table, with bindings and verification records, is in
 | [Payloads (draft)](docs/payload.md) | the stored form of a declaration in a node file: canonical units the ids are recomputed from, decorations for names, the measured size |
 | [Registry protocol (draft)](docs/registry-protocol.md) | the registry as a protocol between independent nodes: relative verification and derived "proved", objects, checkers and mirrors, merge, names, revocation, a SQLite file as the published node; today vs required |
 | [Registry design](docs/registry-design.md) | registry format, two-tier key, what is built and what is planned |
+| [Development plan](docs/plan.md) | what is left to build, in order: consuming a node, CA as a checker, merge and reconciliation, CI and fuzzing, scale, toolchain migration |
 | [All documents](docs/README.md) | index with the status of each |
 
 Status: v0.2.1. The encoding scheme is versioned (`meta.json` and every

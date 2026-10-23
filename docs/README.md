@@ -12,7 +12,7 @@ that exists. The source of truth for behaviour is the code and
 | [what-it-is-for.md](what-it-is-for.md) | overview | **current.** The uses that need a result, not a file, to be addressable; CA is the addressing layer only. |
 | [usage.md](usage.md) | guide | **current.** Using CA in a project: dependency, attributes, statuses, registry generation. |
 | [cli.md](cli.md) | reference | **current.** The `ca` command-line tool. |
-| [building.md](building.md) | guide | **current.** The two Lake packages, builds, tests, dependencies, versioning. |
+| [building.md](building.md) | guide | **current.** The three Lake packages, builds, tests, dependencies, versioning. |
 | [modules.md](modules.md) | reference | **current.** The library's modules. |
 | [scope.md](scope.md) | overview | **current.** Where CA is used, related work, what an address covers and what it cannot. |
 | [worked-example.md](worked-example.md) | reference | **current** for Lean v4.35.0 / scheme 1. The README banner computed by hand: every intermediate id of `Nat.add_zero`'s `stmt`, with an `#eval` that reproduces it. |
@@ -21,6 +21,7 @@ that exists. The source of truth for behaviour is the code and
 | [address.md](address.md) | reference | **current** for the `ca address` CLI subcommand and the L0 / L1 canonicalisation levels; superseded by `ref-hash.md` for "what is a declaration's address". |
 | [l1-normalization.md](l1-normalization.md) | engineering note | **current** for `--level 1` in the CLI: what reducible `whnf` normalisation does, the native-`whnf` crash, and the micro-batching that avoids it. |
 | [registry-protocol.md](registry-protocol.md) | specification | **draft 2.** The registry as a protocol between nodes: relative verification and the derived "proved", objects, checkers and mirrors, merge, signed names, revocation, schemes, network queries, a SQLite file as the published node with Redis as declbuild's live store, a reference-implementation plan, what declbuild does today versus what is required, open questions and sequencing. |
+| [plan.md](plan.md) | plan | **working plan.** What is left to build and in what order, with a status line per item: consuming a node (`sources.json`, `ca lookup`, `resolve%`), CA as a checker (`ca verify`, records, signatures), merge and reconciliation, CI, fuzzing and measurements, scale, toolchain migration. |
 | [registry-design.md](registry-design.md) | design | **partly built.** Attributes, `#ca_registry`, status classification and `meta.json` exist; `sources.json`, resolution (`use`, `resolve%`), caching and cross-project cascade are plans. The banner at the top lists which is which. |
 | [decentralized-formal-math.md](decentralized-formal-math.md) | vision | **mostly a plan.** The three roles, the status lifecycle and the dependency model are the intended design; the `ca publish` / `work` / `submit` / `resolve` subcommands and `use` do not exist. |
 

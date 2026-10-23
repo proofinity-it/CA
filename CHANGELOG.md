@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `docs/plan.md`: the development plan, with a status line per item;
+  listed in the README and the docs index. `payload.md` §8 drops the
+  naming-variant question the protocol settled.
+
 ## v0.2.1 — 2026-10-23 — packing without an environment
 
 Ids are unchanged (encoding scheme 1, as v0.1.0 and v0.2.0).

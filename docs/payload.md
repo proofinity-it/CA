@@ -324,10 +324,6 @@ with them yet.
   file's ref table. A row copied out of a file must take the entries it
   cites, renumbered. Whether a single-unit transport (HTTP range reads
   of one row) should instead carry ids inline, the 230% layout, is open.
-- **Naming variants in the protocol.** `registry-protocol.md` §6 says
-  two different payloads under one content key mean a fault. With
-  naming variants, two units under one key are a fault only if they
-  check to different ids. §6 needs that amendment.
 - **Extension state.** Simp sets, instances and attributes are not in a
   payload (`registry-protocol.md` §16, *Extension state*).
 - **Decoration vectors.** §9 pins units only; decorations (names) are
