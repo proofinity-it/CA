@@ -5,7 +5,7 @@ The repository holds three Lake packages:
 | Directory | Package | Contents | Native deps |
 |---|---|---|---|
 | `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test`, `node-test` | **none**: pure Lean, Batteries only |
-| `nodefile/` | `ca-nodefile` | `CaNodeFile`: the node file as SQLite (`CA.NodeFile.writeNode` / `readNode`, `registry-protocol.md` §12); required by `cli/` and by stores that write node files (declbuild) | none to install: leansqlite bundles the SQLite amalgamation (needs a C compiler `cc`) |
+| `nodefile/` | `ca-nodefile` | `CaNodeFile`: the node file as SQLite (`CA.NodeFile.writeNode` / `readNode`, `registry-protocol.md` §12); required by `cli/` and by stores that write node files (canode) | none to install: leansqlite bundles the SQLite amalgamation (needs a C compiler `cc`) |
 | `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on `examples/publish`) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite through `nodefile/` |
 
 The library is what downstream projects `require`; it hashes with a

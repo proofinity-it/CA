@@ -8,7 +8,7 @@ import SQLite
 the rows of a `CA.Node.Node` to a new file; `readNode` reads them back.
 A package of its own (`ca-nodefile`, in `nodefile/`) so that `require ca`
 stays pure Lean: leansqlite compiles the SQLite amalgamation. The `ca`
-CLI and declbuild both require it.
+CLI and canode both require it.
 Ids and digests are 32-byte blobs. Names live once in `names`, as
 `nm`-encoded blobs (`payload.md` §2) with a `display` column holding the
 dotted rendering for people and SQL queries; every other table cites

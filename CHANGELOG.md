@@ -92,7 +92,7 @@ Ids are unchanged (encoding scheme 1, as v0.1.0 and v0.2.0).
 
 - `CA.Node.packDecls`: the rows of a node from declarations and the ids
   of what they reference, with no `Environment`, so a store that holds
-  declarations and ids (declbuild's Redis) can write a node file.
+  declarations and ids (canode's Redis) can write a node file.
   `packEnvironment` now walks the cone and calls it. A block given with a
   member missing is refused and the member named (`blockSiblings`): the
   standalone encoding does not mention mutual siblings, so such a
@@ -106,7 +106,7 @@ Ids are unchanged (encoding scheme 1, as v0.1.0 and v0.2.0).
   CLI's dependencies: `require «ca-nodefile» from git
   "https://github.com/proofinity-it/CA" @ TAG / "nodefile"`. The library
   stays pure Lean; the CLI requires the new package.
-- `registry-protocol.md` §15 brought up to date with declbuild
+- `registry-protocol.md` §15 brought up to date with canode
   (2026-10-23: `sorryAx` gate, scheme separation done) and with what CA
   v0.2.0 itself provides (statement units, node files, `ca check`).
 
@@ -162,14 +162,14 @@ unchanged: encoding scheme 1, the same `stmt` / `decl` / `ref` as v0.1.0.
   statement) with the canonical terms as one shared node table, from
   which the ids are recomputed without Lean or the cone; decorations
   keyed by (`decl`, name) for everything the ids ignore. Sized on 4,827
-  Mathlib declarations with declbuild's `payload-probe`: 131% of
-  declbuild's payload with per-file tables, 230% with ids inline.
+  Mathlib declarations with canode's `payload-probe`: 131% of
+  canode's payload with per-file tables, 230% with ids inline.
   `registry-protocol.md` §4 and §12 use it; `spec.md` points to it.
 
 - CA is the specification of the registry, implementations hold nodes:
   `docs/registry-protocol.md` §1 adds static nodes (the SQLite file,
   CA alone, nothing to host) and live nodes (a working store that
-  exports and imports the file; declbuild's is Redis), independent of
+  exports and imports the file; canode's is Redis), independent of
   checker / mirror; §12 makes the SQLite file normative for
   interchange and calls Redis one live store, not part of the protocol.
   README and `docs/cli.md` say the same (the CLI's `ca:decl:*` keys are

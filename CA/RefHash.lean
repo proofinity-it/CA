@@ -349,7 +349,7 @@ def isProofIrrelevant : ConstantInfo → Bool
 /-- The constants a declaration references, including the structural
     references that live outside `Expr`s (mutual block, constructors,
     inductive of a constructor, recursor rules). Mirrors
-    `declbuild`'s `EnvAssembly.constantsOf`. -/
+    `canode`'s `EnvAssembly.constantsOf`. -/
 def refsOf (ci : ConstantInfo) (withProofs : Bool := true) : NameSet := Id.run do
   let ins (acc : NameSet) (ns : List Name) : NameSet :=
     ns.foldl (fun (a : NameSet) n => a.insert n) acc

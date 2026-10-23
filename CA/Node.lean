@@ -10,7 +10,7 @@ A node, as published, is a set of rows: the file's ref and name tables,
 units, members, decorations (`docs/payload.md` §6), and the declaration,
 witness, statement and entry rows that index them. This module builds
 those rows from declarations and the ids of what they reference
-(`packDecls`, no `Environment` needed: a store such as declbuild's packs
+(`packDecls`, no `Environment` needed: a store such as canode's packs
 from what it holds), or from a Lean environment (`packEnvironment`), and
 checks a set of rows (`checkNode`). It holds no file format: the `ca` CLI writes and
 reads the rows as one SQLite file (`ca pack`, `ca check`), and any other

@@ -8,8 +8,8 @@
 > a name, how a claim is retracted, how nodes running different id
 > schemes stay apart, and how a node is published and read. The
 > canonical published form of a node is one SQLite file; Redis is
-> declbuild's live local store. Section 15 compares the protocol with
-> what declbuild does today; section 16 lists open questions, including
+> canode's live local store. Section 15 compares the protocol with
+> what canode does today; section 16 lists open questions, including
 > the one scheme decision that needs a measurement before it can be
 > taken. Nothing here is implemented in CA yet.
 >
@@ -30,14 +30,14 @@ There are currently two registries that do not know about each other:
   ([registry-design.md](registry-design.md)), published by `git push`:
   ids, statuses and statements (as units, [payload.md](payload.md)), no
   proofs.
-- **declbuild's Redis network.** Every Redis instance holding
-  declbuild's key schema is a node; `declbuild publish` and
-  `declbuild peer push/pull` copy keys between nodes. It carries
+- **canode's Redis network.** Every Redis instance holding
+  canode's key schema is a node; `canode publish` and
+  `canode peer push/pull` copy keys between nodes. It carries
   payloads, dependency edges, bindings and signed verification records.
 
 Both are views of one thing: a set of content-addressed objects whose
 ids are CA's. The rules that make a federation coherent are rules about
-those ids, so they belong next to the ids, in CA. declbuild is one
+those ids, so they belong next to the ids, in CA. canode is one
 implementation; Redis is its local store; the published form of a node
 is a file any implementation can read.
 
@@ -53,7 +53,7 @@ is a file any implementation can read.
   that file, produced with CA alone (`#ca_registry`, then `ca pack`) and
   published by copying it: nothing to host, no service to run. A
   **live** node keeps its objects in a working store with builds, kernel
-  runs and annotations on top (declbuild's is Redis) and conforms by
+  runs and annotations on top (canode's is Redis) and conforms by
   exporting to and importing from the file. Static or live says how a
   node is held, and is independent of checker or mirror (§5), which says
   what it checks on receipt. Running a server is the price of a live
@@ -104,7 +104,7 @@ the rules the protocol takes from it:
 **How far the exact tier reaches.** `stmt` embeds the ids of everything
 in the statement's cone, down to Lean's core, so it matches across two
 projects only when their cones are byte-identical: in practice, the same
-toolchain and the same Mathlib commit. declbuild measured one minor
+toolchain and the same Mathlib commit. canode measured one minor
 toolchain bump (v4.33 → v4.35) at about three quarters of a Mathlib
 sample changing `decl`, most of it through core definitions. The
 corresponding number for theorems' `stmt` has not been measured and
@@ -121,7 +121,7 @@ leaves one scheme-level remedy as an open question (§16, *middle tier*).
 A **verification record** says: *witness `decl` of statement `stmt` was
 kernel-checked by the stock Lean kernel, with the refs in `assumes`
 replaced by axioms of their type, and with the base axioms in `axioms`
-accepted.* declbuild's `verify-relative` produces exactly this. What may
+accepted.* canode's `verify-relative` produces exactly this. What may
 be assumed follows `ref`: a theorem by its `stmt` (the kernel never
 unfolds a theorem's value), a definition by its `decl` (reduction needs
 its value). An assumption is therefore always a ref id, unambiguous
@@ -221,7 +221,7 @@ Per-key joins as in §4, plus:
   Both are kept, keyed by (key, variant digest); union.
 - **Twins.** Declarations equal up to a consistent renaming share one
   `decl` and one unit; each name has its own decoration, keyed by
-  (`decl`, name), not a competitor. (declbuild's `cinfo-named:` rows
+  (`decl`, name), not a competitor. (canode's `cinfo-named:` rows
   exist for this because its payload mixes names into the content.)
 
 ## 7. Names: namespaces, bindings, authority
@@ -362,20 +362,20 @@ Why this is the published form:
   through its standard library, any tool, any agent, no Lean installed.
 - *A node can hold everything.* Disk-resident; coverage is a choice.
 
-The file is produced by a tool (`ca pack`, or declbuild) from a registry
+The file is produced by a tool (`ca pack`, or canode) from a registry
 folder plus the environment, or exported from a live store; it is not
 committed to a source tree (a binary in git has no diffs) but attached
 to releases or served from a pages branch. `declarations.json` remains
 the human-readable index next to the source.
 
-**Redis — declbuild's live local store.** A Redis instance holding
-declbuild's key schema (`cinfo:`, `ids:`, `deps:`, `stmt:`, `rdeps:`,
+**Redis — canode's live local store.** A Redis instance holding
+canode's key schema (`cinfo:`, `ids:`, `deps:`, `stmt:`, `rdeps:`,
 `verifications:`, `bind:`, `aux:`, `meta:zstd-dict:`) is the hot path of
 a build: RAM-resident, shared by the daemon and the CLI. Node-to-node
 copy between Redis instances (`peer push/pull`) remains as it is, inside
 a trust boundary, since Redis has no per-key authorisation. Exporting a
 Redis node to the SQLite form and importing one are the bridge between
-the two; declbuild's project state, daemon queues and `graph:*`
+the two; canode's project state, daemon queues and `graph:*`
 compactions are local and never exported. Redis is one live store, not
 part of the protocol: another implementation may keep its live node in
 anything, provided it exports and imports the file. Likewise the `ca`
@@ -421,24 +421,24 @@ file it writes, signed and unsigned, intact and tampered.
 
 ## 15. Today versus this specification
 
-From declbuild's `DeclBuild/Cli/Peer.lean`, `docs/redis-schema.md`,
+From canode's `Canode/Cli/Peer.lean`, `docs/redis-schema.md`,
 `docs/attestations.md`, `docs/relative-verification.md`, 2026-10-23.
 Where CA itself now provides the piece (v0.3.0), the row says so.
 
-| item | today (declbuild) | required here | priority |
+| item | today (canode) | required here | priority |
 |---|---|---|---|
 | Content-keyed objects, union merge | done | same | — |
 | Relative verification | done; trust set as CA hashes; signed records; `sorryAx` fails the check and gets no record, `attest` skips a `sorry` declaration (2026-10-23). CA alone: `ca verify` rebuilds a node file's declarations, the kernel judges, records state `assumes` (ref ids of statements assumed from their statement units) and `axioms`; `sorryAx` makes the record invalid | records state `assumes` as ref ids and `axioms` | **high** |
 | Statement as a first-class object | implicit only: a statement exists as the `stmt` of a stored payload. CA has the object: a statement unit ([payload.md](payload.md) §3), in every `statements.json` and node file | Statement with type bytes and `ref` map, holdable without a proof | **high** |
-| Published node format | none in declbuild; Redis keys are its only form. CA writes and checks the file (`ca pack`, `ca check`, `tools/registry_ref.py`); declbuild's export / import is its next step | SQLite file export / import | **high** |
+| Published node format | **done** (2026-10-23): `canode node export` writes the store's modules as a node file from Redis alone, ids recomputed and compared; `node import` checks a file (`CA.Node.checkNode`) and rebuilds every name. CA writes and checks the file too (`ca pack`, `ca check`, `tools/registry_ref.py`) | SQLite file export / import | — |
 | Id check on receipt | **not done** in `peer push/pull`. For node files it is `ca check` / `CA.Node.checkNode` | checkers recompute; mirrors declare | **high** |
 | Bindings | plain `SET`, last writer wins; no ownership proof (acknowledged open). In node files: `ca pack --sign` writes a claim of `label@key` and signed, sequence-numbered bindings; `ca check` and `registry_ref.py` verify them | namespace id contains the owner key; signed, sequence-numbered | **high** |
 | Scheme separation | **done** (2026-10-23): the store declares `meta:id_scheme`; `peer`, `fetch` and `use` refuse a mismatch, or a node with content and no declared scheme | manifest declares; no cross-scheme merge | — |
-| "Proved" derived across nodes | not computed in declbuild; `registry_ref.py` derives it over one node file's valid records | §3 over trusted records, across nodes | medium |
+| "Proved" derived across nodes | not computed in canode; `registry_ref.py` derives it over one node file's valid records | §3 over trusted records, across nodes | medium |
 | Revocation | none | tombstones, key revocation | medium |
 | Network queries | one `--registry` URL for lazy fetch; `peer` list of nodes | §10 over the sources list | medium |
 | Difference finding | per-id `EXISTS`; full id list per pull | range digests over sorted keys | medium |
-| Node manifest and sources list | none; `~/.declbuild/peers.json` | signed manifests; `sources.json` | medium |
+| Node manifest and sources list | none; `~/.canode/peers.json` | signed manifests; `sources.json` | medium |
 | Twins across nodes | `cinfo-named:` rows not carried by `peer` (acknowledged). In a node file the format solves it: one unit, one decoration per name ([payload.md](payload.md) §1) | carried as named variants | low |
 | Public write safety | Redis inside a trust boundary | files and read-only replicas; gateway if ever needed | when needed |
 
@@ -462,7 +462,7 @@ Where CA itself now provides the piece (v0.3.0), the row says so.
   incomplete, and whether it requests the missing pieces or the sender
   must transfer cones whole.
 - **Extension state.** Payloads do not carry simp sets, instances or
-  attributes (declbuild's `ext:` and the `.olean` stash). A witness
+  attributes (canode's `ext:` and the `.olean` stash). A witness
   checked relative to a statement does not need them; *elaborating* new
   proofs against fetched declarations does. Whether they become
   protocol objects, and under what key, is open.
@@ -474,7 +474,7 @@ Where CA itself now provides the piece (v0.3.0), the row says so.
 - **Namespace labels.** `label@key`, or bare keys with labels only in
   manifests.
 - **Definitions as assumptions.** §3 never assumes a definition (its
-  value is meaning, not a claim). declbuild lists "axiomatising
+  value is meaning, not a claim). canode lists "axiomatising
   definitions" as open; under this protocol it would change a
   statement's meaning and is out of scope.
 
@@ -496,7 +496,7 @@ units remapped onto one table), range digests and difference finding
 (`ca digest`, `ca diff`). Next: the derivation of "proved" across files
 and over trusted signers only ([plan.md](plan.md) item 3 leftovers).
 
-In declbuild: records with `assumes` as ref ids and `axioms`; SQLite
+In canode: records with `assumes` as ref ids and `axioms`; SQLite
 export and import of a node (through `ca-nodefile`); id check on receipt
 in `peer`; signed bindings; statements stored without proofs.
 

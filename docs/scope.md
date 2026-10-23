@@ -4,11 +4,11 @@ CA is the addressing layer. It computes ids and can generate a
 project-local registry folder; it does not store declarations, run the
 kernel, or serve queries.
 
-- [declbuild](https://github.com/proofinity-it) builds on it: a
-  declaration-granular store keyed by these ids, a kernel re-checker
-  that re-verifies a stored declaration against an explicitly trusted
-  cone, statement-keyed annotations, and a registry whose unit of
-  sharing is a declaration rather than a repository. Public release
+- [canode](https://github.com/proofinity-it/canode) (declbuild until
+  2026-10-23) builds on it: the live node of CA, a declaration-granular
+  store keyed by these ids, a kernel re-checker that re-verifies a
+  stored declaration against an explicitly trusted cone, statement-keyed
+  annotations, and node export / import of the same file. Public release
   intended shortly.
 
 ## Related work

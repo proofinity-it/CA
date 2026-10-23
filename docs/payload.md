@@ -299,14 +299,14 @@ no id a dependent can see; it drops 839 units (proof-only auxiliaries),
 `Init`, more bytes than the units; it is derivable from them and off by
 default.
 
-**Size against declbuild's payload, Mathlib.** declbuild's
+**Size against canode's payload, Mathlib.** canode's
 `payload-probe` (2026-10-22) encoded 4,827 random Mathlib v4.35.0
 declarations in draft 1's shape (without name slots), all
 zstd-compressed:
 
-| layout | size | vs declbuild, no dictionary | vs declbuild, as stored (dictionary) |
+| layout | size | vs canode, no dictionary | vs canode, as stored (dictionary) |
 |---|---|---|---|
-| declbuild payload | 3.92 MB | 100% | 113% |
+| canode payload | 3.92 MB | 100% | 113% |
 | units + decorations, ids inline in every unit | 9.01 MB | 230% | 259% |
 | units + decorations, file ref and name tables (§6) | 5.13 MB | 131% | 148% |
 
@@ -320,12 +320,12 @@ with them yet.
   §6 exist because of this measurement.
 - **The sample understates the tables' benefit.** In a node file holding
   a whole library, the ref table has about one entry per declaration,
-  while units grow linearly. Extrapolated, about 110% of declbuild's
+  while units grow linearly. Extrapolated, about 110% of canode's
   payload without a dictionary and 125% with one. A dictionary trained
   on units should recover part of that; it is worth about 11% on
-  declbuild's payloads.
+  canode's payloads.
 - **Sharing subterms matters before compression.** The node tables total
-  9.1 MB against 49.7 MB of declbuild's uncompressed payloads; on the
+  9.1 MB against 49.7 MB of canode's uncompressed payloads; on the
   largest declarations the ratio is about 100 to 1
   (`AlgebraicGeometry.Etale.iff_flat_and_formallyUnramified`: 394 KB vs
   3.8 KB).

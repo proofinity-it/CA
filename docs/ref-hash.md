@@ -1,7 +1,7 @@
 # `CA.RefHash` — content identity per declaration
 
 `CA.RefHash` is the identity scheme CA recommends for declarations: the
-key of a declaration store (declbuild uses it so) and, once emitted, the
+key of a declaration store (canode uses it so) and, once emitted, the
 exact tier of the registry key next to the coarse name-based hash. It
 exists because the name-based L0 type hash
 
@@ -235,6 +235,6 @@ stored declarations (constant info, kind, module, dependencies,
 verification records). `ref` is what dependency edges and cone walks
 use, so that re-proving a theorem invalidates nothing downstream while
 changing a definition's value invalidates everything that could unfold
-it. This is how declbuild (not yet public) uses them; the registry emits
+it. This is how canode (not yet public) uses them; the registry emits
 `stmt` and `ref` next to the coarse name-based `type_hash`
 ([registry-design.md](registry-design.md), *The two-tier key*).

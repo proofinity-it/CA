@@ -8,7 +8,7 @@ vs 64 for hex.
 Alphabet: `123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`
 
 This is the id rendering shared by everything downstream of CA
-(declbuild's store keys, the same keys on every registry peer's Redis);
+(canode's store keys, the same keys on every registry peer's Redis);
 it lives here so that
 consumers do not each carry their own copy.
 -/

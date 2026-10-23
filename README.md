@@ -34,7 +34,7 @@ assumptions?", and gets the answer by id, never by name.
 The protocol has two kinds of node. A **static** node is a file a
 project produces and publishes by copying it, with nothing to host; a
 **live** node is a working store with builds and kernel re-checks on
-top that exchanges the same file ([declbuild](docs/scope.md)'s keeps
+top that exchanges the same file ([canode](docs/scope.md)'s keeps
 its in Redis). `ca pack` writes a project's node file and `ca check`
 checks one without trusting it ([`docs/cli.md`](docs/cli.md); the format
 is [`docs/payload.md`](docs/payload.md), draft 2). So does

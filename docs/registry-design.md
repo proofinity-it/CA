@@ -20,7 +20,7 @@
 
 > **See also** [registry-protocol.md](registry-protocol.md), the draft
 > protocol under which this folder (packed into a file, a static node)
-> and declbuild's Redis store (a live node) hold nodes of one network.
+> and canode's Redis store (a live node) hold nodes of one network.
 > This document describes the folder and the attributes; the
 > protocol describes how nodes exchange and check what the folders and
 > nodes hold.
