@@ -38,3 +38,8 @@ lean_exe "payload-test" where
 lean_exe "node-test" where
   root := `NodeTest
   supportInterpreter := true
+
+/-- `CA.Verify`: declarations rebuilt from a node and judged by the kernel; forged proofs rejected. -/
+lean_exe "verify-test" where
+  root := `VerifyTest
+  supportInterpreter := true

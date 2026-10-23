@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  library:
+    name: Library, tests, Python checkers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Cache Lake builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            .lake
+            nodefile/.lake
+            cli/.lake
+            cli/tests/fixture/.lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'nodefile/lake-manifest.json', 'cli/lake-manifest.json') }}
+      - name: Build the library
+        run: lake build
+      - name: RefHash, Registry, Node, Verify tests
+        run: |
+          lake exe refhash-test
+          lake exe registry-test
+          lake exe node-test
+          lake exe verify-test
+      - name: Payload round trip over Init
+        run: lake exe payload-test
+      - name: Python reference implementations (standard library only)
+        run: |
+          python3 -I tools/refhash_ref.py
+          python3 -I tools/registry_ref.py --vectors
+          python3 -I tools/ed25519_ref.py
+
+  cli:
+    name: CLI and end-to-end node test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Native dependencies (OpenSSL, hiredis, zlog from source)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libhiredis-dev
+          git clone --depth 1 https://github.com/HardySimpson/zlog /tmp/zlog
+          make -C /tmp/zlog -j"$(nproc)"
+          sudo make -C /tmp/zlog install
+          sudo ldconfig
+      - name: Cache Lake builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            .lake
+            nodefile/.lake
+            cli/.lake
+            cli/tests/fixture/.lake
+          key: lake-cli-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'nodefile/lake-manifest.json', 'cli/lake-manifest.json') }}
+      - name: Build the CLI
+        run: cd cli && lake build
+      - name: Self-test and end-to-end node test
+        run: |
+          cli/.lake/build/bin/ca selftest
+          bash cli/tests/node-test.sh
+      - name: Fuzz the checkers
+        run: python3 -I tools/fuzz_node.py --ca cli/.lake/build/bin/ca --rounds 300

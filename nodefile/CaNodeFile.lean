@@ -28,8 +28,14 @@ def schema : Array String := #[
   "CREATE TABLE decorations (decl BLOB NOT NULL, name INTEGER NOT NULL REFERENCES names, bytes BLOB NOT NULL, UNIQUE (decl, name))",
   "CREATE TABLE declarations (decl BLOB PRIMARY KEY, kind TEXT NOT NULL, stmt BLOB NOT NULL, ref BLOB NOT NULL) WITHOUT ROWID",
   "CREATE TABLE witnesses (stmt BLOB NOT NULL, decl BLOB NOT NULL, PRIMARY KEY (stmt, decl)) WITHOUT ROWID",
-  "CREATE TABLE entries (name INTEGER PRIMARY KEY REFERENCES names, stmt BLOB NOT NULL, status TEXT NOT NULL, type_hash TEXT NOT NULL)",
+  "CREATE TABLE entries (name INTEGER NOT NULL REFERENCES names, stmt BLOB NOT NULL, status TEXT NOT NULL, type_hash TEXT NOT NULL, PRIMARY KEY (name, stmt)) WITHOUT ROWID",
+  "CREATE TABLE deps (decl BLOB NOT NULL, ref BLOB NOT NULL, PRIMARY KEY (decl, ref)) WITHOUT ROWID",
+  "CREATE TABLE records (decl BLOB NOT NULL, digest BLOB PRIMARY KEY, json TEXT NOT NULL, signer TEXT NOT NULL, sig BLOB NOT NULL, valid INTEGER NOT NULL) WITHOUT ROWID",
+  "CREATE TABLE namespaces (ns TEXT PRIMARY KEY, owner_key BLOB NOT NULL, delegates TEXT NOT NULL, sig BLOB NOT NULL)",
+  "CREATE TABLE bindings (ns TEXT NOT NULL, name BLOB NOT NULL, seq INTEGER NOT NULL, target BLOB NOT NULL, sig BLOB NOT NULL, PRIMARY KEY (ns, name, seq)) WITHOUT ROWID",
   "CREATE INDEX members_by_unit ON members (unit)",
+  "CREATE INDEX records_by_decl ON records (decl)",
+  "CREATE INDEX deps_by_ref ON deps (ref)",
   "CREATE INDEX declarations_by_stmt ON declarations (stmt)",
   "CREATE INDEX names_by_display ON names (display)"]
 
@@ -89,7 +95,63 @@ def writeNode (path : System.FilePath) (node : CA.Node.Node) : IO Unit := do
       st.bindBlob 1 s; st.bindBlob 2 d
     ins "INSERT INTO entries VALUES (?1, ?2, ?3, ?4)" node.entries fun st e => do
       st.bindInt64 1 (ix e.name); st.bindBlob 2 e.stmt; st.bindText 3 e.status; st.bindText 4 e.typeHash
+    ins "INSERT OR IGNORE INTO deps VALUES (?1, ?2)" node.deps fun st d => do
+      st.bindBlob 1 d.decl; st.bindBlob 2 d.ref
+    ins "INSERT OR REPLACE INTO records VALUES (?1, ?2, ?3, ?4, ?5, ?6)" node.records fun st r => do
+      st.bindBlob 1 r.decl; st.bindBlob 2 r.digest; st.bindText 3 r.json; st.bindText 4 r.signer
+      st.bindBlob 5 r.sig; st.bindInt64 6 (if r.valid then 1 else 0)
+    ins "INSERT OR REPLACE INTO namespaces VALUES (?1, ?2, ?3, ?4)" node.namespaces fun st c => do
+      st.bindText 1 c.ns; st.bindBlob 2 c.ownerKey; st.bindText 3 c.delegates; st.bindBlob 4 c.sig
+    ins "INSERT OR REPLACE INTO bindings VALUES (?1, ?2, ?3, ?4, ?5)" node.bindings fun st b => do
+      st.bindText 1 b.ns; st.bindBlob 2 (nameBytes b.name); st.bindInt64 3 b.seq.toInt64
+      st.bindBlob 4 b.target; st.bindBlob 5 b.sig
   db.exec "VACUUM"
+
+private def hasTable (db : SQLite) (name : String) : IO Bool := do
+  let st ← db.prepare "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1"
+  st.bindText 1 name
+  st.step
+
+/-- The records of an open node file (none in a file written before the table existed). -/
+def readRecords (db : SQLite) : IO (Array RecordRow) := do
+  unless ← hasTable db "records" do return #[]
+  let st ← db.prepare "SELECT decl, digest, json, signer, sig, valid FROM records ORDER BY decl, digest"
+  let mut out := #[]
+  while ← st.step do
+    out := out.push { decl := ← st.columnBlob 0, digest := ← st.columnBlob 1, json := ← st.columnText 2,
+                      signer := ← st.columnText 3, sig := ← st.columnBlob 4,
+                      valid := (← st.columnInt64 5) != 0 : RecordRow }
+  return out
+
+/-- The namespace claims and bindings of an open node file. -/
+def readNames (db : SQLite) : IO (Array NamespaceRow × Array BindingRow) := do
+  unless ← hasTable db "bindings" do return (#[], #[])
+  let st ← db.prepare "SELECT ns, owner_key, delegates, sig FROM namespaces ORDER BY ns"
+  let mut ns := #[]
+  while ← st.step do
+    ns := ns.push { ns := ← st.columnText 0, ownerKey := ← st.columnBlob 1, delegates := ← st.columnText 2,
+                    sig := ← st.columnBlob 3 : NamespaceRow }
+  let st ← db.prepare "SELECT ns, name, seq, target, sig FROM bindings ORDER BY ns, name, seq"
+  let mut bs := #[]
+  while ← st.step do
+    bs := bs.push { ns := ← st.columnText 0, name := ← nameOfBytes (← st.columnBlob 1),
+                    seq := (← st.columnInt64 2).toNatClampNeg, target := ← st.columnBlob 3,
+                    sig := ← st.columnBlob 4 : BindingRow }
+  return (ns, bs)
+
+/-- Add records to an existing node file (`ca verify --write`); a record
+    with the same digest is replaced. -/
+def appendRecords (path : System.FilePath) (records : Array RecordRow) : IO Unit := do
+  unless ← path.pathExists do throw (IO.userError s!"{path}: no such file")
+  let db ← SQLite.openWith path .readWrite
+  db.exec "CREATE TABLE IF NOT EXISTS records (decl BLOB NOT NULL, digest BLOB PRIMARY KEY, json TEXT NOT NULL, signer TEXT NOT NULL, sig BLOB NOT NULL, valid INTEGER NOT NULL) WITHOUT ROWID"
+  db.exec "CREATE INDEX IF NOT EXISTS records_by_decl ON records (decl)"
+  db.transaction do
+    let st ← db.prepare "INSERT OR REPLACE INTO records VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+    for r in records do
+      st.bindBlob 1 r.decl; st.bindBlob 2 r.digest; st.bindText 3 r.json; st.bindText 4 r.signer
+      st.bindBlob 5 r.sig; st.bindInt64 6 (if r.valid then 1 else 0)
+      st.exec; st.reset; st.clearBindings
 
 /-- Read every row of a node file. -/
 def readNode (path : System.FilePath) : IO CA.Node.Node := do
@@ -130,10 +192,15 @@ def readNode (path : System.FilePath) : IO CA.Node.Node := do
              stmt := ← st.columnBlob 2, ref := ← st.columnBlob 3 : DeclRow }
   let witnesses ← rows "SELECT stmt, decl FROM witnesses ORDER BY stmt, decl" fun st => do
     return (← st.columnBlob 0, ← st.columnBlob 1)
-  let entries ← rows "SELECT name, stmt, status, type_hash FROM entries ORDER BY name" fun st => do
+  let entries ← rows "SELECT name, stmt, status, type_hash FROM entries ORDER BY name, stmt" fun st => do
     return { name := ← nameAt (← st.columnInt64 0), stmt := ← st.columnBlob 1,
              status := ← st.columnText 2, typeHash := ← st.columnText 3 : EntryRow }
-  return { info, table, units, members, decorations, declarations, witnesses, entries }
+  let deps ← rows "SELECT decl, ref FROM deps ORDER BY decl, ref" fun st => do
+    return { decl := ← st.columnBlob 0, ref := ← st.columnBlob 1 : DepRow }
+  let records ← readRecords db
+  let (namespaces, bindings) ← readNames db
+  return { info, table, units, members, decorations, declarations, witnesses, entries, deps, records,
+           namespaces, bindings }
 
 /-! ## Queries
 

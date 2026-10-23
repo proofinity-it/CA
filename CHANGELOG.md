@@ -13,6 +13,43 @@
   `ca fetch-sources` copies URL sources into `.lake/ca/sources/`.
   `CA.NodeFile` gains the queries (and two indexes). Tests in
   `registry-test` and `node-test.sh`.
+- CA as a checker (plan item 2). `ca verify FILE` rebuilds every
+  declaration of a node file from its unit and decorations, adds it to
+  an environment foundations first and lets the kernel judge
+  (`CA.Verify`); references the file lacks are assumed as axioms of
+  their statement when the file has the statement unit, theorems packed
+  without proofs likewise; one verification record per accepted theorem
+  (`assumes` as ref ids, `axioms`, `valid`; `sorryAx` invalid);
+  `--write` stores the records, `--sign KEY` signs them. A forged proof
+  with honest ids passes `ca check` and is rejected here
+  (`lake exe verify-test`). Node files gain `deps` (checked against the
+  unit's slots), `records`, `namespaces` and `bindings`; statement units
+  carry their decoration. `ca keygen` makes an Ed25519 key;
+  `ca pack --sign KEY --label L` claims `L@key` and binds every entry's
+  name to its `ref`, signed and sequence-numbered. `CA.SHA512` and
+  `CA.Ed25519` are pure Lean (FIPS 180-4 and RFC 8032 vectors tested);
+  `tools/ed25519_ref.py` is the same in Python's standard library, so
+  `registry_ref.py` verifies every signature and derives "proved" over a
+  file's records. `CA.Node.blockSiblings` covers the recursors of a
+  mutual or nested family (`A.rec` ↔ `B.rec`), so a recursor packed
+  without its sibling is refused.
+- Merge and reconciliation (plan item 3). `ca merge OUT A B...` writes the
+  union of node files: units and decorations re-encoded against one ref
+  and name table (`CA.Payload.remapUnit` / `remapDecoration`; ids
+  unchanged, variants recomputed), rows unioned, entries keyed by
+  (name, stmt), bindings by highest `seq`; checked before writing.
+  `ca digest` prints range digests of a node's content keys by id
+  prefix; `ca diff A B` finds what each lacks by opening only the buckets
+  whose digests differ.
+- Trusting the implementation (plan item 4). `.github/workflows/ci.yml`:
+  library, five test executables, Python checkers, CLI, end-to-end and
+  fuzz on every push. `tools/fuzz_node.py` mutates node files and
+  requires both checkers to report or pass, never crash; it found that an
+  uncaught `IO` error made `ca` exit with SIGSEGV (now caught and
+  printed) and two unguarded reads in `registry_ref.py`. `payload.md` §9
+  gains six decoration vectors, checked by `registry_ref.py --vectors`
+  and `node-test`; `node-test` also packs, checks and rebuilds 300 random
+  declarations.
 - `docs/plan.md`: the development plan, with a status line per item;
   listed in the README and the docs index. `payload.md` §8 drops the
   naming-variant question the protocol settled.

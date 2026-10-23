@@ -490,6 +490,17 @@ def registryCmd : Cli.Cmd := `[Cli|
     o, output : String; "Output directory (default: registry)"
 ]
 
+/-- Read a 32-byte seed written by `ca keygen` (64 hex digits). -/
+def readSeed (path : System.FilePath) : IO ByteArray := do
+  let txt := (← IO.FS.readFile path).trimAscii.toString
+  let cs := txt.toList.toArray
+  unless cs.size == 64 && cs.all (fun c => c.isDigit || ('a' ≤ c.toLower && c.toLower ≤ 'f')) do
+    throw (IO.userError s!"{path}: not a key file written by `ca keygen`")
+  let v (c : Char) : Nat := if c.isDigit then c.toNat - '0'.toNat else c.toLower.toNat - 'a'.toNat + 10
+  let mut b := ByteArray.empty
+  for i in [:32] do b := b.push (v cs[2*i]! * 16 + v cs[2*i+1]!).toUInt8
+  return b
+
 -- Subcommands: pack, check (the node file)
 
 def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
@@ -526,6 +537,13 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
                 ("lean_toolchain", toolchain.getD Lean.versionString)]
   let t0 ← IO.monoMsNow
   let (node, rep) ← CA.Node.packEnvironment env roots withProofs fastHasher (info := info)
+  let node ← if p.hasFlag "sign" then do
+      let seed ← readSeed (p.flag! "sign" |>.as! String)
+      let label := if p.hasFlag "label" then p.flag! "label" |>.as! String else moduleName.toString
+      let n := CA.Node.bindEntries node seed label
+      IO.eprintln s!"  {n.bindings.size} bindings in {label}@{CA.Node.keyText (CA.Ed25519.publicKey seed)}"
+      pure n
+    else pure node
   let t1 ← IO.monoMsNow
   CA.NodeFile.writeNode output node
   let size := (← System.FilePath.metadata output).byteSize
@@ -548,6 +566,8 @@ def packCmd : Cli.Cmd := `[Cli|
     own; "Pack every declaration of the module and its submodules (default: the @[publish] / @[open_point] ones)"
     all; "Pack every declaration of the loaded environment"
     "no-proofs"; "Statement mode: theorems without their proofs"
+    sign : String; "Key file from `ca keygen`: claim the namespace LABEL@key and bind every entry's name in it"
+    label : String; "Namespace label for --sign (default: the module name)"
 ]
 
 def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
@@ -570,6 +590,156 @@ def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
 def checkCmd : Cli.Cmd := `[Cli|
   check VIA runCheckCmd; ["0.2.1"]
   "Check a node file: every unit's ids recomputed from its bytes, every row against its unit, every decoration rebuilt."
+
+  ARGS:
+    file : String; "The node file (SQLite)"
+]
+
+-- Subcommands: merge, digest, diff (registry-protocol.md §6, §10)
+
+def runMergeCmd (p : Cli.Parsed) : IO UInt32 := do
+  let out : System.FilePath := p.positionalArg! "out" |>.as! String
+  let inputs := p.variableArgsAs! String
+  if inputs.size < 1 then IO.eprintln "error: nothing to merge"; return 1
+  let mut node ← CA.NodeFile.readNode inputs[0]!
+  let mut errors : Array String := #[]
+  for path in inputs[1:] do
+    let (m, errs) ← CA.Node.merge node (← CA.NodeFile.readNode path) fastHasher
+    node := m; errors := errors ++ errs
+  let rep ← CA.Node.checkNode node fastHasher
+  if !errors.isEmpty || !rep.faults.isEmpty then
+    IO.eprintln s!"error: the merge has {errors.size + rep.faults.size} faults; nothing written"
+    for e in (errors ++ rep.faults).toList.take 20 do IO.eprintln s!"  {e}"
+    return 1
+  CA.NodeFile.writeNode out node
+  IO.println s!"Wrote {out}: {node.units.size} units, {node.declarations.size} declarations, {node.entries.size} entries, {node.records.size} records, {node.bindings.size} bindings from {inputs.size} nodes; checked, no faults"
+  return 0
+
+def mergeCmd : Cli.Cmd := `[Cli|
+  merge VIA runMergeCmd; ["0.2.1"]
+  "Union of node files into one, re-encoded against one ref table and checked (ids unchanged; bindings: highest seq wins)."
+
+  ARGS:
+    out : String; "The merged node file to write"
+    ...inputs : String; "Node files to merge"
+]
+
+def runDigestCmd (p : Cli.Parsed) : IO UInt32 := do
+  let path := p.positionalArg! "file" |>.as! String
+  let bits := if p.hasFlag "bits" then p.flag! "bits" |>.as! Nat else 8
+  let node ← CA.NodeFile.readNode path
+  let ds ← CA.Node.rangeDigests node bits fastHasher
+  let j : Lean.Json := .mkObj [("bits", bits), ("keys", (CA.Node.contentKeys node).size),
+    ("buckets", .arr (ds.map fun (c, d, n) => .mkObj [("bucket", c), ("digest", CA.SHA256.toHex256 d), ("count", n)]))]
+  IO.println j.pretty
+  return 0
+
+def digestCmd : Cli.Cmd := `[Cli|
+  digest VIA runDigestCmd; ["0.2.1"]
+  "Range digests of a node's content keys: one SHA-256 per id-prefix bucket, for reconciliation."
+
+  FLAGS:
+    bits : Nat; "Prefix bits per bucket (default 8: up to 256 buckets)"
+
+  ARGS:
+    file : String; "The node file"
+]
+
+def runDiffCmd (p : Cli.Parsed) : IO UInt32 := do
+  let a := p.positionalArg! "a" |>.as! String
+  let b := p.positionalArg! "b" |>.as! String
+  let bits := if p.hasFlag "bits" then p.flag! "bits" |>.as! Nat else 8
+  let na ← CA.NodeFile.readNode a
+  let nb ← CA.NodeFile.readNode b
+  let (onlyA, onlyB, buckets, opened) ← CA.Node.diff na nb bits fastHasher
+  IO.println s!"{buckets} bucket digests compared, {opened} opened; {onlyA.size} keys only in {a}, {onlyB.size} only in {b}"
+  let nameOf (n : CA.Node.Node) : Std.HashMap ByteArray Name :=
+    n.members.foldl (fun m r => if m.contains r.decl then m else m.insert r.decl r.name) {}
+  let la := nameOf na
+  let lb := nameOf nb
+  for k in onlyA.toList.take 50 do IO.println s!"  - {CA.RefHash.toB58 k}{match la.get? k with | some n => s!"  {n}" | none => ""}"
+  for k in onlyB.toList.take 50 do IO.println s!"  + {CA.RefHash.toB58 k}{match lb.get? k with | some n => s!"  {n}" | none => ""}"
+  return if onlyA.isEmpty && onlyB.isEmpty then 0 else 2
+
+def diffCmd : Cli.Cmd := `[Cli|
+  diff VIA runDiffCmd; ["0.2.1"]
+  "What two node files hold that the other lacks, found through range digests. Exit 2 when they differ."
+
+  FLAGS:
+    bits : Nat; "Prefix bits per bucket (default 8)"
+
+  ARGS:
+    a : String; "A node file"
+    b : String; "Another node file"
+]
+
+-- Keys (CA.Ed25519, pure Lean): `ca keygen`, `--sign KEYFILE`
+
+def runKeygenCmd (p : Cli.Parsed) : IO UInt32 := do
+  let path : System.FilePath := p.positionalArg! "file" |>.as! String
+  if ← path.pathExists then
+    IO.eprintln s!"error: {path} exists; not overwriting a key"
+    return 1
+  let seed ← CA.Ed25519.randomSeed
+  IO.FS.writeFile path (CA.SHA256.toHex256 seed ++ "\n")
+  IO.setAccessRights path { user := { read := true, write := true } }
+  IO.println s!"{CA.Node.keyText (CA.Ed25519.publicKey seed)}"
+  IO.eprintln s!"secret key written to {path} (keep it private); the line above is the public key, as used in namespace ids and record signers"
+  return 0
+
+def keygenCmd : Cli.Cmd := `[Cli|
+  keygen VIA runKeygenCmd; ["0.2.1"]
+  "Generate an Ed25519 key for signing records and bindings; prints the public key."
+
+  ARGS:
+    file : String; "Where to write the secret key (not overwritten)"
+]
+
+-- Subcommand: verify (CA.Verify: the kernel's verdict on a node)
+
+def runVerifyCmd (p : Cli.Parsed) : IO UInt32 := do
+  let path := p.positionalArg! "file" |>.as! String
+  let imports : Array Name :=
+    if p.hasFlag "import" then (p.flag! "import" |>.as! (Array String)).map String.toName else #[`Init]
+  enableInit
+  initSearchPath (← findSysroot)
+  addLakePackagePaths
+  let node ← CA.NodeFile.readNode path
+  let fileToolchain := (node.info.find? (·.1 == "lean_toolchain")).map (·.2)
+  if let some t := fileToolchain then
+    if t != s!"leanprover/lean4:{Lean.versionString}" && !t.endsWith Lean.versionString then
+      IO.eprintln s!"warning: the file was built on {t}; this ca runs Lean {Lean.versionString}"
+  let env ← try importModules (imports.map fun m => { module := m }) {} (loadExts := false)
+    catch e => IO.eprintln s!"error: importing {imports}: {e}"; IO.Process.exit 1
+  let t0 ← IO.monoMsNow
+  let (_, rep) ← CA.Verify.verifyNode env node fastHasher
+  let t1 ← IO.monoMsNow
+  IO.println s!"{path}: {rep.added} declarations added and accepted by the kernel, {rep.generated} recursors produced by it, {rep.present} already in the environment ({(t1 - t0) / 1000} s)"
+  IO.println s!"  {rep.records.size} records: {(rep.records.filter (·.valid)).size} valid, {(rep.records.filter (!·.valid)).size} invalid (sorryAx)"
+  unless rep.assumed.isEmpty do
+    IO.println s!"  {rep.assumed.size} statements assumed as axioms:"
+    for (n, r) in rep.assumed.toList.take 20 do IO.println s!"    {n}  {CA.RefHash.toB58 r}"
+  if p.hasFlag "write" then
+    let toolchain := fileToolchain.getD s!"leanprover/lean4:{Lean.versionString}"
+    let seed ← if p.hasFlag "sign" then some <$> readSeed (p.flag! "sign" |>.as! String) else pure none
+    let rows ← CA.Node.recordRows (rep.records.map fun r => (r.decl, r.valid, r.toJson toolchain)) seed fastHasher
+    CA.NodeFile.appendRecords path rows
+    IO.println s!"  {rows.size} records written to {path} ({match seed with | some s => s!"signed by {CA.Node.keyText (CA.Ed25519.publicKey s)}" | none => "unsigned"})"
+  if rep.faults.isEmpty then
+    IO.println "  no faults"
+    return 0
+  IO.println s!"  {rep.faults.size} FAULTS:"
+  for f in rep.faults.toList.take 50 do IO.println s!"    {f}"
+  return 1
+
+def verifyCmd : Cli.Cmd := `[Cli|
+  verify VIA runVerifyCmd; ["0.2.1"]
+  "Rebuild every declaration of a node file and let the kernel judge it; one verification record per accepted theorem."
+
+  FLAGS:
+    "import" : Array String; "Modules to import first, the file's foundations (default: Init)"
+    write; "Write the records into the file"
+    sign : String; "Key file from `ca keygen`: sign the records written"
 
   ARGS:
     file : String; "The node file (SQLite)"
@@ -766,10 +936,20 @@ def caCmd : Cli.Cmd := `[Cli|
     registryCmd;
     packCmd;
     checkCmd;
+    verifyCmd;
+    keygenCmd;
+    mergeCmd;
+    digestCmd;
+    diffCmd;
     lookupCmd;
     fetchSourcesCmd;
     selftestCmd
 ]
 
-def main (args : List String) : IO UInt32 :=
-  caCmd.validate args
+/-- An uncaught `IO` error would reach the runtime's own error printer,
+    which crashes (SIGSEGV) instead of printing it; report it here. -/
+def main (args : List String) : IO UInt32 := do
+  try caCmd.validate args
+  catch e =>
+    IO.eprintln s!"error: {e}"
+    return 1

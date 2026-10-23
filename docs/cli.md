@@ -73,7 +73,52 @@ unit; every decoration must rebuild declarations whose ids, computed
 from the names it gives, are the unit's. Reports naming variants and
 units with names hashed by name, lists faults, and exits 1 if there are
 any. Measured: all of `Init` (65,972 declarations with proofs, 114 MB)
-packs in about 2.5 min and checks in about 30 s.
+packs in about 2.5 min and checks in about 30 s. Signed rows (records,
+namespace claims, bindings) must verify under their keys.
+
+## `verify`
+
+`ca verify FILE [--import M]... [--write [--sign KEY]]` is the kernel's
+verdict on a node file: every declaration is rebuilt from its unit and
+decorations, added to an environment holding the imports (default
+`Init`) foundations first, and checked by the kernel. Nothing is trusted
+from the file but bytes: a unit whose ids are honest but whose proof is
+wrong passes `ca check` and fails here. A reference that is neither in
+the environment nor in the file is assumed as an axiom of its statement
+when the file holds that statement unit (a registry entry), and reported
+as missing otherwise; a theorem packed without its proof is assumed
+likewise. For every theorem the kernel accepts, a verification record
+(`registry-protocol.md` §3) lists what was assumed (ref ids) and which
+axioms the proof rests on; `sorryAx` makes it invalid. `--write` stores
+the records in the file; `--sign KEY` signs them with a key from
+`ca keygen`. Inductive families are added whole and the kernel's
+recursors compared with the file's. Exit 1 on any fault.
+
+## `merge`, `digest`, `diff`
+
+`ca merge OUT A B...` writes the union of node files (`registry-protocol.md`
+§6): units and decorations re-encoded against one ref and name table
+(ids unchanged, variant digests recomputed), declarations, witnesses,
+dependencies, records and entries unioned, namespace claims by id,
+bindings by the highest sequence number. The result is checked before it
+is written; a fault means nothing is written.
+
+`ca digest FILE [--bits N]` prints the range digests of a node's content
+keys (unit keys and declaration ids): one SHA-256 per `N`-bit id prefix,
+with counts, as JSON. `ca diff A B` compares two nodes through those
+digests, opening only the buckets that differ, and lists the keys each
+holds that the other lacks, with a name where the file binds one. Exit 2
+when they differ.
+
+## `keygen`
+
+`ca keygen FILE` writes a fresh Ed25519 secret key (32-byte seed, hex)
+to `FILE` with owner-only permissions and prints the public key in
+base58, the form used in namespace ids (`label@key`) and record signers.
+`ca pack --sign FILE [--label L]` claims the namespace `L@key` (default
+label: the module name) and binds every registry entry's name to its
+`ref` in it; `ca verify --write --sign FILE` signs the records. Keys are
+pure Lean (`CA.Ed25519`, RFC 8032); nothing to install.
 
 ## `lookup`
 

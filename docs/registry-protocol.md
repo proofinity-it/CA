@@ -333,9 +333,17 @@ annotations (id, kind, digest PK, json, signer)
 dicts       (tag PK, bytes)
 ```
 
-`ca pack` writes, and `ca check` checks, the tables down to `entries`
-([payload.md](payload.md) §6 has their exact columns); `deps` and the
-rest are not written yet. A statement is a unit of form 0 keyed by its
+`ca pack` writes, and `ca check` checks, every table but `annotations`
+and `dicts` ([payload.md](payload.md) §6 has the exact columns of the
+first five): `deps` (each declaration's references outside its unit, by
+ref id, checked against the unit's slots), `records` (written by
+`ca verify`: the §3 JSON, its SHA-256 digest, the signer's key and an
+Ed25519 signature over the digest, `valid`), `namespaces` and `bindings`
+(written by `ca pack --sign`: the claim of `label@key` and one signed,
+sequence-numbered binding per registry entry, name ↦ `ref`). Signatures
+are Ed25519 in pure Lean (`CA.Ed25519`, RFC 8032) and in Python's
+standard library (`tools/ed25519_ref.py`), so a build and a stdlib-only
+checker both verify them. A statement is a unit of form 0 keyed by its
 `stmt`, so there is no separate statements table; a pretty-printed type
 and `type_hash` are hints in `entries`.
 
@@ -397,12 +405,19 @@ receipt for content, i.e. every unit's ids recomputed from its bytes
 ([payload.md](payload.md) §5) and every member, declaration, witness and
 entry row checked against them; it agrees with `ca check` on every unit
 of an `Init` node file and reproduces payload.md §9's vectors.
-**Still to do:** signatures, merge, range reconciliation, the §3
-derivation of `proved` / `conditional` / `open`, and binding resolution,
-all of which wait for records, bindings and the other tables to be
-written. Two implementations that agree on a file, the Python one and
-the Lean one, are the conformance test; `cli/tests/node-test.sh` runs
-both on every file it writes.
+**Also built** (2026-10-23): records (digest, declaration row, stmt
+field), Ed25519 signatures on records, namespace claims and bindings
+(`tools/ed25519_ref.py`), binding targets present in the file, and the
+§3 derivation of `proved` / `conditional` over the valid records of one
+file (a statement is proved when some witness has a valid record whose
+every assumption is a definition or a proved statement, no cycle).
+**Also built:** merge (`CA.Node.merge`, checked by both implementations
+on the result) and range digests with difference finding (`CA.Node.diff`).
+**Still to do:** the derivation across several files and over trusted
+signers only, binding resolution by `(ns, name)`. Two
+implementations that agree on a file, the Python one and the Lean one,
+are the conformance test; `cli/tests/node-test.sh` runs both on every
+file it writes, signed and unsigned, intact and tampered.
 
 ## 15. Today versus this specification
 
@@ -413,13 +428,13 @@ Where CA itself now provides the piece (v0.2.0), the row says so.
 | item | today (declbuild) | required here | priority |
 |---|---|---|---|
 | Content-keyed objects, union merge | done | same | — |
-| Relative verification | done; trust set as CA hashes; signed records; `sorryAx` fails the check and gets no record, `attest` skips a `sorry` declaration (2026-10-23) | records state `assumes` as ref ids and `axioms` | **high** |
+| Relative verification | done; trust set as CA hashes; signed records; `sorryAx` fails the check and gets no record, `attest` skips a `sorry` declaration (2026-10-23). CA alone: `ca verify` rebuilds a node file's declarations, the kernel judges, records state `assumes` (ref ids of statements assumed from their statement units) and `axioms`; `sorryAx` makes the record invalid | records state `assumes` as ref ids and `axioms` | **high** |
 | Statement as a first-class object | implicit only: a statement exists as the `stmt` of a stored payload. CA has the object: a statement unit ([payload.md](payload.md) §3), in every `statements.json` and node file | Statement with type bytes and `ref` map, holdable without a proof | **high** |
 | Published node format | none in declbuild; Redis keys are its only form. CA writes and checks the file (`ca pack`, `ca check`, `tools/registry_ref.py`); declbuild's export / import is its next step | SQLite file export / import | **high** |
 | Id check on receipt | **not done** in `peer push/pull`. For node files it is `ca check` / `CA.Node.checkNode` | checkers recompute; mirrors declare | **high** |
-| Bindings | plain `SET`, last writer wins; no ownership proof (acknowledged open) | namespace id contains the owner key; signed, sequence-numbered | **high** |
+| Bindings | plain `SET`, last writer wins; no ownership proof (acknowledged open). In node files: `ca pack --sign` writes a claim of `label@key` and signed, sequence-numbered bindings; `ca check` and `registry_ref.py` verify them | namespace id contains the owner key; signed, sequence-numbered | **high** |
 | Scheme separation | **done** (2026-10-23): the store declares `meta:id_scheme`; `peer`, `fetch` and `use` refuse a mismatch, or a node with content and no declared scheme | manifest declares; no cross-scheme merge | — |
-| "Proved" derived across nodes | not computed | §3 over trusted records | medium |
+| "Proved" derived across nodes | not computed in declbuild; `registry_ref.py` derives it over one node file's valid records | §3 over trusted records, across nodes | medium |
 | Revocation | none | tombstones, key revocation | medium |
 | Network queries | one `--registry` URL for lazy fetch; `peer` list of nodes | §10 over the sources list | medium |
 | Difference finding | per-id `EXISTS`; full id list per pull | range digests over sorted keys | medium |
@@ -473,9 +488,14 @@ measurements (`stmt` survival across a toolchain bump, with and without
 the core cut; the full-mode versus statement-mode `stmt` mismatch rate
 from `spec.md` §13).
 
+In CA, done (2026-10-23): merge of node files (`ca merge`, `CA.Node.merge`,
+units remapped onto one table), range digests and difference finding
+(`ca digest`, `ca diff`). Next: the derivation of "proved" across files
+and over trusted signers only ([plan.md](plan.md) item 3 leftovers).
+
 In declbuild: records with `assumes` as ref ids and `axioms`; SQLite
-export and import of a node; id check on receipt in `peer`; signed
-bindings; statements stored without proofs.
+export and import of a node (through `ca-nodefile`); id check on receipt
+in `peer`; signed bindings; statements stored without proofs.
 
 Not before the above: more Redis-to-Redis sync machinery (no second
 project publishes a node yet), and the equivalence-proof layer (the

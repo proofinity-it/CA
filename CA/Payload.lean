@@ -500,6 +500,35 @@ def decodeDecoration (bytes : ByteArray) : Except String Decoration := Rd.run' (
     | t => throw s!"bad hints {t}"
   return ⟨own, member, refNames, levelParams, binders, hints⟩) bytes
 
+/-! ## Remapping onto another file table
+
+Units cite positions in their file's ref table and decorations positions
+in its name table. Moving a unit into another file (merge, incremental
+pack) renumbers those positions: the bytes change, the ids do not. -/
+
+/-- `u` with its reference slots renumbered from `src` to `dst` (extended
+    with any id it lacked). -/
+def remapUnit (u : UnitData) (src dst : FileTable) : Except String (UnitData × FileTable) := do
+  let mut dst := dst
+  let mut refs := #[]
+  for p in u.refs do
+    let some id := src.refs[p]? | throw s!"reference slot points at position {p}, outside the ref table"
+    let (t, i) := dst.refIx id
+    dst := t
+    refs := refs.push i
+  return ({ u with refs }, dst)
+
+/-- `d` with its name positions renumbered from `src` to `dst`. -/
+def remapDecoration (d : Decoration) (src dst : FileTable) : Except String (Decoration × FileTable) := do
+  let mut dst := dst
+  let mut refNames := #[]
+  for p in d.refNames do
+    let some n := src.names[p]? | throw s!"decoration names position {p}, outside the name table"
+    let (t, i) := dst.nameIx n
+    dst := t
+    refNames := refNames.push i
+  return ({ d with refNames }, dst)
+
 /-! ## Rebuilding declarations -/
 
 /-- The terms of a unit as `Expr`s, children before parents, sharing kept. -/

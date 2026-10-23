@@ -56,7 +56,19 @@ records, which is what the protocol's "proved" derives from.
 | Signatures: Ed25519 over the record digest, signer key in `meta` | CLI, through libsodium-lean | a record signed by one key is rejected under another |
 | `bindings` rows: signed, sequence-numbered `(ns, name) → ref` | same | last-writer-wins is gone from the file format |
 
-Status: **not started.**
+Status: **done** (2026-10-23), with one change of plan: signatures are
+pure Lean (`CA.SHA512`, `CA.Ed25519`, RFC 8032 vectors in
+`verify-test`) rather than libsodium, so the library stays free of
+native dependencies and the stdlib-only Python checker verifies them
+(`tools/ed25519_ref.py`). Delivered: `deps` rows checked against unit
+slots; `CA.Verify` and `ca verify` (kernel check, assumptions from
+statement units, records with `assumes` and `axioms`, `sorryAx`
+invalid; forged proof rejected in `verify-test`); `records`,
+`namespaces` and `bindings` tables; `ca keygen`, `ca verify --sign`,
+`ca pack --sign --label`; `checkNode` and `registry_ref.py` verify every
+signature and binding target; `registry_ref.py` derives "proved" over
+one file's records. Left for item 3: merge of records and bindings
+(highest `seq` wins), the derivation across files and trusted signers.
 
 ## 3. Merge and reconciliation between static nodes
 
@@ -68,7 +80,14 @@ The protocol says "merge is SQL". Nothing does it yet.
 | `ca merge OUT A B…`: union of nodes; faults reported, naming variants kept, witnesses and records unioned, entries keyed by `(name, stmt)` | `CA.Node.merge`, CLI | merging a node with itself is the identity up to row order; merging the fixture's three packs checks clean |
 | `ca digest FILE`: range digests over sorted keys (prefix buckets); `ca diff A B`: the keys that differ, found by recursing only into differing buckets | `CA.Node`, CLI | two nodes differing in one unit exchange a handful of bucket digests and name that unit |
 
-Status: **not started.**
+Status: **done** (2026-10-23): `CA.Payload.remapUnit` / `remapDecoration`
+(every Init-sized unit of the node test keeps its ids on a reversed
+table), `CA.Node.merge`, `rangeDigests`, `diff`; `ca merge` (checked
+before writing), `ca digest`, `ca diff`; entries keyed by (name, stmt).
+Tested in `node-test` and `node-test.sh` (three packs merged, both
+checkers accept the result; merge with itself keeps the counts; diff
+names `Color.swap`). One level of buckets, not a recursive tree: enough
+for files of this size, measured later under item 5.
 
 ## 4. Trusting the implementation
 
@@ -81,7 +100,13 @@ Status: **not started.**
 | Measurement A: full-mode versus statement-mode `stmt` agreement on Init | `tools/measure.sh`, results in `payload.md` or `ref-hash.md` | a number, with the method |
 | Measurement B: `stmt` and `type_hash` survival across one toolchain bump on Init (v4.34.0 → v4.35.0) | same | a number, with the method; the "core cut" variant waits for the middle-tier scheme decision ([registry-protocol.md](registry-protocol.md) §16) |
 
-Status: **not started.**
+Status: **in progress** (2026-10-23). Done: `.github/workflows/ci.yml`
+(library and tests, Python checkers, CLI build, end-to-end test, fuzzing);
+six decoration vectors in `payload.md` §9 checked by both
+implementations; `tools/fuzz_node.py` (400 mutations clean after it found
+that an uncaught `IO` error made `ca` crash instead of reporting, and
+two unguarded reads in the Python checker); a property test of 300
+random declarations in `node-test`. Left: the two measurements.
 
 ## 5. Scale
 

@@ -255,6 +255,10 @@ members     (decl, name → names, unit → units, member, PK(decl, name))
 decorations (decl, name → names, bytes, UNIQUE(decl, name))
 ```
 
+A statement unit (an entry's) has one decoration keyed `(stmt, entry
+name)` and no member row: it is what lets a reader rebuild the statement
+with its names, to assume it (`ca verify`).
+
 A `decl` has one row in `members` per name it is bound to. The row
 points at the unit variant that name's declaration encodes to, so twins
 point at one variant and naming variants at their own. Names, including
@@ -317,6 +321,12 @@ with them yet.
 
 ## 8. Open questions
 
+- **Families of twin blocks.** A block with twin names (`Add`/`Add.mk`
+  and `Mul`/`Mul.mk` on one unit) has one decoration per member and
+  name, but nothing says which decorations belong together. `CA.Verify`
+  aligns them by sorted name and checks the result (constructors name
+  their inductive, `all` lists match); a decoration could instead carry
+  a family tag.
 - **Original levels and `mdata`.** Restoring them exactly would need a
   per-node override in the decoration. Neither reaches the kernel; it
   matters only if a byte-identical `.olean` is ever the goal.
@@ -326,8 +336,8 @@ with them yet.
   of one row) should instead carry ids inline, the 230% layout, is open.
 - **Extension state.** Simp sets, instances and attributes are not in a
   payload (`registry-protocol.md` §16, *Extension state*).
-- **Decoration vectors.** §9 pins units only; decorations (names) are
-  checked by round trip in `payload-test`, not by fixed bytes.
+- **Decoration vectors.** §9 now pins six decorations as well; more
+  (hints `abbrev` / `opaque`, universe-polymorphic binders) would help.
 
 ## 9. Test vectors
 
@@ -373,4 +383,55 @@ expect: ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn
 The `refs` of the last vector are the `ref`s of `Nat`, `Eq`, `HAdd.hAdd`,
 `instHAdd`, `instAddNat`, `OfNat.ofNat` and `instOfNatNat` in slot
 order (`spec.md` §12 lists the same ids in hex).
+
+### Decorations
+
+Decorations of the same declarations, as `ca pack` writes them, with the
+name-table positions renumbered `0…k-1` in slot order so each vector is
+self-contained (`slots` lists the name behind each position). Decoding
+one (§4) must give the fields shown; `python3 -I tools/registry_ref.py
+--vectors` and `lake exe node-test` check all six.
+
+```text
+name: inductive T, member T (block T.a, T, T.b)
+key: AwbguQQn99uqMeaCaqyKHw57myYCFN8QxPuucQ8xeZTJ
+slots: (none)
+decoration: 010100015401000000ff
+own: T  member: 1  levels: (none)  binders: (none)  hints: none
+```
+```text
+name: T.a, member 0 of the block
+key: 39W2PKpM7xCyj9RyTYDNjnibqnAuCUqBJxgewcAvjYQK
+slots: (none)
+decoration: 010200015400016100000000ff
+own: T.a  member: 0  levels: (none)  binders: (none)  hints: none
+```
+```text
+name: T.b, member 2 of the block
+key: HXoucYvHwNNdQ18f52gCPdNBB1z6PGC3M2ieVM3KMGwh
+slots: (none)
+decoration: 010200015400016202000000ff
+own: T.b  member: 2  levels: (none)  binders: (none)  hints: none
+```
+```text
+name: T.rec (standalone)
+key: E12cVn4293JnFftV3PpDQtt7Eb6WbphwUkmXg12dfqgn
+slots: T T.a T.b
+decoration: 0102000154000372656300030001020101000175040100066d6f74697665010001740100016101000162ff
+own: T.rec  member: 0  levels: u  binders: motive t a b  hints: none
+```
+```text
+name: idT (standalone)
+key: 2L8HHtdHc1GnBSmsACbRew9etEWEo1y4ZnNhX8XjGn1N
+slots: T
+decoration: 010100036964540001000001010001780201
+own: idT  member: 0  levels: (none)  binders: x  hints: regular 1
+```
+```text
+name: statement unit of ∀ n : Nat, n + 0 = n (Nat.add_zero's statement), decoration named Conj
+key: ByKFv4nqHrcsFWuBFd7ihUXKFNEdMvFdMvjW7n8XE3nn
+slots: Nat Eq HAdd.hAdd instHAdd instAddNat OfNat.ofNat instOfNatNat
+decoration: 01010004436f6e6a00070001020304050600010100016eff
+own: Conj  member: 0  levels: (none)  binders: n  hints: none
+```
 

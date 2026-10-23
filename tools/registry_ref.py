@@ -29,6 +29,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True   # importing refhash_ref must not leave __pycache__ in tools/
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from refhash_ref import H, SCHEME, b58, u8, u64  # noqa: E402  (spec.md §3 primitives)
+import ed25519_ref  # noqa: E402  (RFC 8032, standard library only)
 
 PAYLOAD_FORMAT = 1
 
@@ -315,8 +316,11 @@ def decode_decoration(b: bytes) -> dict:
     d["levelParams"] = [r.nm() for _ in range(r.uv())]
     d["binders"] = [r.nm() for _ in range(r.uv())]
     h = r.u8()
-    if h == 2: r.uv()
-    elif h not in (0, 1, 0xFF): raise ValueError(f"bad hints {h}")
+    if h == 2: d["hints"] = ("regular", r.uv())
+    elif h == 0: d["hints"] = "opaque"
+    elif h == 1: d["hints"] = "abbrev"
+    elif h == 0xFF: d["hints"] = None
+    else: raise ValueError(f"bad hints {h}")
     if not r.done(): raise ValueError("trailing bytes")
     return d
 
@@ -329,13 +333,23 @@ class Report:
     decorations: int = 0
     variants: int = 0
     inexact: int = 0
+    records: int = 0
+    signed: int = 0
+    bindings: int = 0
+    derived: dict = field(default_factory=dict)
+    notes: list = field(default_factory=list)
     faults: list = field(default_factory=list)
 
 def check_node_file(path: str) -> Report:
     db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     rep = Report()
     file_refs = [r for (r,) in db.execute("SELECT ref FROM refs ORDER BY ix")]
-    names = [Reader(n).nm() for (n,) in db.execute("SELECT name FROM names ORDER BY ix")]
+    names = []
+    for ix, n in db.execute("SELECT ix, name FROM names ORDER BY ix"):
+        try:
+            names.append(Reader(n).nm())
+        except ValueError as e:
+            rep.faults.append(f"name {ix}: {e}"); names.append(("?",))
     units, ids_of_unit, keys = {}, {}, {}
     for uid, key, variant, form, bts in db.execute("SELECT id, key, variant, form, bytes FROM units"):
         rep.units += 1
@@ -364,17 +378,21 @@ def check_node_file(path: str) -> Report:
         if member >= len(ids) or ids[member][1] != decl:
             rep.faults.append(f"member {nm}: listed decl is not member {member}'s")
     member_unit = {(d, n): uid for d, n, uid in db.execute("SELECT decl, name, unit FROM members")}
+    # A statement unit's decoration is keyed (stmt, entry name): no member row.
+    stmt_unit = {key: uid for uid, key, form in db.execute("SELECT id, key, form FROM units") if form == 0}
     for decl, name, bts in db.execute("SELECT decl, name, bytes FROM decorations"):
         rep.decorations += 1
         nm = name_str(names[name]) if name < len(names) else f"#{name}"
         try:
             d = decode_decoration(bts)
             uid = member_unit.get((decl, name))
-            if uid is None: raise ValueError("no member row")
+            if uid is None: uid = stmt_unit.get(decl)
+            if uid is None: raise ValueError("no member row and no statement unit")
             u = units.get(uid)
             if u is not None:
                 if len(d["refNames"]) != len(u.refs): raise ValueError("does not name every reference slot")
                 if any(i >= len(names) for i in d["refNames"]): raise ValueError("name out of range")
+                if name >= len(names): raise ValueError("member name out of range")
                 if d["own"] != names[name]: raise ValueError("own name differs from the member's")
         except ValueError as e:
             rep.faults.append(f"decoration {nm}: {e}")
@@ -385,8 +403,91 @@ def check_node_file(path: str) -> Report:
         if decl_ids.get(decl, (None,))[0] != stmt:
             rep.faults.append(f"witness {b58(decl)}: not a witness of {b58(stmt)}")
     for name, stmt in db.execute("SELECT name, stmt FROM entries"):
+        label = name_str(names[name]) if name < len(names) else f"#{name}"
         if stmt not in keys:
-            rep.faults.append(f"entry {name_str(names[name])}: no statement unit")
+            rep.faults.append(f"entry {label}: no statement unit")
+    # deps: each row cites a reference slot of the member's unit; a unit's
+    # members together cite every slot (registry-protocol.md §4).
+    unit_of_decl = {d: uid for d, uid in db.execute("SELECT decl, unit FROM members")}
+    unit_refs = {uid: {file_refs[p] for p in u.refs if p < len(file_refs)} for uid, u in units.items()}
+    cited = {}
+    for decl, ref in db.execute("SELECT decl, ref FROM deps"):
+        uid = unit_of_decl.get(decl)
+        if uid is None or uid not in unit_refs:
+            rep.faults.append(f"deps {b58(decl)}: no member row"); continue
+        if ref not in unit_refs[uid]:
+            rep.faults.append(f"deps {b58(decl)}: cites {b58(ref)}, not a reference of its unit")
+        cited.setdefault(uid, set()).add(ref)
+    for uid, refs in unit_refs.items():
+        if uid in cited and refs - cited[uid]:
+            rep.faults.append(f"deps of unit {uid}: a reference of the unit is cited by no member")
+    # namespaces and bindings (registry-protocol.md §7): claims signed by the
+    # key in the id, bindings signed by the owner or a delegate, targets in the file.
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bindings'").fetchone():
+        owners = {}
+        for ns, owner, delegates, sig in db.execute("SELECT ns, owner_key, delegates, sig FROM namespaces"):
+            parts = ns.split("@")
+            key = b58_decode(parts[1]) if len(parts) == 2 else b""
+            if key != owner or len(key) != 32:
+                rep.faults.append(f"namespace {ns}: owner key is not the key in the id"); continue
+            msg = b"CA-namespace-1\n" + ns.encode() + b"\0" + owner + delegates.encode()
+            if not ed25519_ref.verify(owner, msg, sig):
+                rep.faults.append(f"namespace {ns}: claim signature does not verify"); continue
+            keys = [owner] + [b58_decode(k) for k in json.loads(delegates)]
+            owners[ns] = keys
+        targets = {r for (r,) in db.execute("SELECT ref FROM declarations")} | set(keys_all for keys_all in
+                   (k for (k,) in db.execute("SELECT key FROM units")))
+        for ns, name_b, seq, target, sig in db.execute("SELECT ns, name, seq, target, sig FROM bindings"):
+            rep.bindings += 1
+            nm = name_str(Reader(name_b).nm())
+            if ns not in owners:
+                rep.faults.append(f"binding {ns} {nm}: no claim for its namespace in the file"); continue
+            msg = b"CA-binding-1\n" + ns.encode() + b"\0" + name_b + seq.to_bytes(8, "big") + target
+            if not any(ed25519_ref.verify(k, msg, sig) for k in owners[ns]):
+                rep.faults.append(f"binding {ns} {nm} #{seq}: not signed by the owner or a delegate")
+            if target and target not in targets:
+                rep.faults.append(f"binding {ns} {nm} #{seq}: target {b58(target)} is not in the file")
+    # records (registry-protocol.md §3): digest of the JSON, a declaration
+    # row, the same stmt; then "proved" derived over the valid ones.
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='records'").fetchone():
+        decl_stmt = {d: s for d, s in db.execute("SELECT decl, stmt FROM declarations")}
+        by_stmt = {}
+        for decl, digest, js, signer, sig, valid in db.execute("SELECT decl, digest, json, signer, sig, valid FROM records"):
+            rep.records += 1
+            k = b58(decl)
+            if hashlib.sha256(js.encode()).digest() != digest:
+                rep.faults.append(f"record for {k}: digest is not the hash of its JSON"); continue
+            if decl not in decl_stmt:
+                rep.faults.append(f"record for {k}: no such declaration in the file"); continue
+            try:
+                j = json.loads(js)
+            except ValueError as e:
+                rep.faults.append(f"record for {k}: {e}"); continue
+            if j.get("stmt") != b58(decl_stmt[decl]) or j.get("decl") != k:
+                rep.faults.append(f"record for {k}: stmt / decl fields differ from the row's"); continue
+            if signer:
+                pk = b58_decode(signer)
+                if len(pk) != 32 or not ed25519_ref.verify(pk, digest, sig):
+                    rep.faults.append(f"record for {k}: signature by {signer} does not verify"); continue
+                rep.signed += 1
+            if valid and j.get("valid", True):
+                by_stmt.setdefault(decl_stmt[decl], []).append([b58_decode(a) for a in j.get("assumes", [])])
+        # Derived status of every statement with a witness record (§3).
+        is_def = {d for d, k in db.execute("SELECT decl, kind FROM declarations") if k != "theorem"}
+        memo = {}
+        def proved(stmt, stack=()):
+            if stmt in memo: return memo[stmt]
+            if stmt in stack: return False
+            ok = any(all((a in is_def) or proved(a, stack + (stmt,)) for a in assumes)
+                     for assumes in by_stmt.get(stmt, []))
+            memo[stmt] = ok
+            return ok
+        rep.derived = {"proved": 0, "conditional": 0}
+        for stmt in by_stmt:
+            rep.derived["proved" if proved(stmt) else "conditional"] += 1
+        for name, stmt, status in db.execute("SELECT name, stmt, status FROM entries"):
+            if status == "proved" and stmt in by_stmt and not proved(stmt) and name < len(names):
+                rep.notes.append(f"entry {name_str(names[name])}: listed proved, but no record chain closes")
     return rep
 
 def check_statements_json(path: str) -> Report:
@@ -429,6 +530,7 @@ def vectors() -> bool:
         for line in blk.strip().splitlines():
             k, _, v = line.partition(":")
             fields[k.strip()] = v.strip()
+        if "unit" not in fields: continue   # decoration vectors are checked below
         refs = [b58_decode(r) for r in fields.get("refs", "").split()]
         u = decode_unit(bytes.fromhex(fields["unit"]))
         key, ids, _ = unit_ids(u, refs)
@@ -439,6 +541,30 @@ def vectors() -> bool:
         ok &= good
         print(f"  {'ok  ' if good else 'FAIL'} {fields['name']}: {' '.join(got)}")
         if not good: print(f"       expected {' '.join(want)}")
+    # payload.md §9, decorations: decoding gives the fields shown.
+    DECOS = [
+        ("T", 1, [], [], [], None, "010100015401000000ff"),
+        ("T.a", 0, [], [], [], None, "010200015400016100000000ff"),
+        ("T.b", 2, [], [], [], None, "010200015400016202000000ff"),
+        ("T.rec", 0, ["T", "T.a", "T.b"], ["u"], ["motive", "t", "a", "b"], None,
+         "0102000154000372656300030001020101000175040100066d6f74697665010001740100016101000162ff"),
+        ("idT", 0, ["T"], [], ["x"], ("regular", 1), "010100036964540001000001010001780201"),
+        ("Conj", 0, ["Nat", "Eq", "HAdd.hAdd", "instHAdd", "instAddNat", "OfNat.ofNat", "instOfNatNat"], [], ["n"], None,
+         "01010004436f6e6a00070001020304050600010100016eff"),
+    ]
+    for own, member, slots, levels, binders, hints, hexs in DECOS:
+        try:
+            d = decode_decoration(bytes.fromhex(hexs))
+            got = (name_str(d["own"]), d["member"], d["refNames"], [name_str(x) for x in d["levelParams"]],
+                   [name_str(x) for x in d["binders"]], d["hints"])
+            want = (own, member, list(range(len(slots))), levels, binders, hints)
+            if got != want:
+                print(f"  decoration {own}: decoded {got}, expected {want}"); ok = False
+            else:
+                print(f"  decoration {own}: ok")
+        except ValueError as e:
+            print(f"  decoration {own}: {e}"); ok = False
+
     return ok
 
 def main(argv: list) -> int:
@@ -449,9 +575,20 @@ def main(argv: list) -> int:
         print("all vectors reproduced" if ok else "vectors FAILED")
         return 0 if ok else 1
     path = argv[0]
-    rep = check_statements_json(path) if path.endswith(".json") else check_node_file(path)
+    try:
+        rep = check_statements_json(path) if path.endswith(".json") else check_node_file(path)
+    except (sqlite3.Error, ValueError, KeyError, IndexError, OSError, json.JSONDecodeError) as e:
+        print(f"{path}: unreadable: {type(e).__name__}: {e}")
+        return 1
     print(f"{path}: {rep.units} units, {rep.members} members, {rep.decorations} decorations; "
           f"naming variants {rep.variants}; inexact units {rep.inexact}")
+    if rep.bindings:
+        print(f"  bindings: {rep.bindings}, signatures verified")
+    if rep.records:
+        print(f"  records: {rep.records} ({rep.signed} signed, signatures verified); "
+              f"derived over them: {rep.derived.get('proved', 0)} statements proved, "
+              f"{rep.derived.get('conditional', 0)} conditional")
+    for n in rep.notes[:20]: print(f"  note: {n}")
     if rep.faults:
         print(f"  {len(rep.faults)} FAULTS:")
         for f in rep.faults[:50]: print(f"    {f}")

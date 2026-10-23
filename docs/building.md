@@ -24,11 +24,14 @@ lake exe refhash-test
 lake exe registry-test
 lake exe payload-test     # ~5 min: round-trips every Init declaration
 lake exe node-test        # seconds: packDecls gives packEnvironment's rows
+lake exe verify-test      # seconds: a node rebuilt and kernel-checked; SHA-512 / Ed25519 vectors
 
 # Independent Python implementations (standard library only)
 python3 -I tools/refhash_ref.py              # spec.md §12 vectors
-python3 -I tools/registry_ref.py --vectors   # payload.md §9 vectors
+python3 -I tools/registry_ref.py --vectors   # payload.md §9 vectors (units and decorations)
 python3 -I tools/registry_ref.py FILE        # check a node file or a statements.json
+python3 -I tools/ed25519_ref.py              # RFC 8032 test 1
+python3 -I tools/fuzz_node.py --ca cli/.lake/build/bin/ca --rounds 300   # mutate node files; checkers must report, never crash
 
 # CLI (Linux; needs the OpenSSL and hiredis development packages)
 cd cli
@@ -36,6 +39,14 @@ lake build
 .lake/build/bin/ca --help
 tests/node-test.sh        # ca pack / ca check end to end on tests/fixture
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request, on Ubuntu
+with elan: the library build and the five test executables, the Python
+implementations, then the CLI (OpenSSL and hiredis from apt, zlog from
+source), `ca selftest`, `cli/tests/node-test.sh` and 300 rounds of
+`tools/fuzz_node.py`.
 
 ## With Nix
 
