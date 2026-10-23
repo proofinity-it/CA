@@ -454,7 +454,10 @@ Where CA itself now provides the piece (v0.2.0), the row says so.
   one toolchain bump, how much enters through core. If most of it, the
   middle tier removes most of the need for equivalence proofs; if not,
   it buys little. Measure `stmt` survival for theorems with and without
-  the cut before deciding.
+  the cut before deciding. (The other measurement `spec.md` §13 asked
+  for is done: full and statement mode agree on every `stmt` and `ref` of
+  `Init`, [payload.md](payload.md) §7, so a node may keep statements
+  without proofs at no cost in identity.)
 - **Pending objects.** How long a checker holds an object whose cone is
   incomplete, and whether it requests the missing pieces or the sender
   must transfer cones whole.

@@ -537,6 +537,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
                 ("lean_toolchain", toolchain.getD Lean.versionString)]
   let t0 ← IO.monoMsNow
   let (node, rep) ← CA.Node.packEnvironment env roots withProofs fastHasher (info := info)
+    (selfCheck := !p.hasFlag "fast") (withDeps := p.hasFlag "deps")
   let node ← if p.hasFlag "sign" then do
       let seed ← readSeed (p.flag! "sign" |>.as! String)
       let label := if p.hasFlag "label" then p.flag! "label" |>.as! String else moduleName.toString
@@ -568,6 +569,8 @@ def packCmd : Cli.Cmd := `[Cli|
     "no-proofs"; "Statement mode: theorems without their proofs"
     sign : String; "Key file from `ca keygen`: claim the namespace LABEL@key and bind every entry's name in it"
     label : String; "Namespace label for --sign (default: the module name)"
+    fast; "Skip the encoder's self-check (rebuilding every unit from its own output)"
+    deps; "Also write the deps table (each declaration's references by ref id; derivable from the units, large)"
 ]
 
 def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
@@ -671,6 +674,67 @@ def diffCmd : Cli.Cmd := `[Cli|
   ARGS:
     a : String; "A node file"
     b : String; "Another node file"
+]
+
+-- Subcommand: migrate (two nodes, usually two toolchains: what survived)
+
+def runMigrateCmd (p : Cli.Parsed) : IO UInt32 := do
+  let a := p.positionalArg! "a" |>.as! String
+  let b := p.positionalArg! "b" |>.as! String
+  let na ← CA.NodeFile.readNode a
+  let nb ← CA.NodeFile.readNode b
+  let tc (n : CA.Node.Node) := (n.info.find? (·.1 == "lean_toolchain")).map (·.2) |>.getD "?"
+  -- Declarations by name: did stmt, ref, decl survive?
+  let byName (n : CA.Node.Node) : Std.HashMap Name CA.Node.DeclRow := Id.run do
+    let rows : Std.HashMap ByteArray CA.Node.DeclRow := n.declarations.foldl (fun m d => m.insert d.decl d) {}
+    let mut out := {}
+    for m in n.members do
+      if let some d := rows.get? m.decl then out := out.insert m.name d
+    return out
+  let da := byName na
+  let db := byName nb
+  let mut common := 0; let mut sameStmt := 0; let mut sameRef := 0; let mut sameDecl := 0
+  let mut thm := 0; let mut thmSameStmt := 0
+  let mut changed : Array Name := #[]
+  for (n, d) in da.toArray do
+    let some e := db.get? n | continue
+    common := common + 1
+    if d.stmt == e.stmt then sameStmt := sameStmt + 1 else changed := changed.push n
+    if d.ref == e.ref then sameRef := sameRef + 1
+    if d.decl == e.decl then sameDecl := sameDecl + 1
+    if d.kind == "theorem" then
+      thm := thm + 1
+      if d.stmt == e.stmt then thmSameStmt := thmSameStmt + 1
+  let onlyA := da.size - common
+  let onlyB := db.size - common
+  -- Entries: pair by type_hash (coarse), confirm by stmt (exact).
+  let eb : Std.HashMap String (Array CA.Node.EntryRow) :=
+    nb.entries.foldl (fun m e => m.insert e.typeHash ((m.getD e.typeHash #[]).push e)) {}
+  let mut survived := 0; let mut moved : Array (Name × Array Name) := #[]; let mut gone : Array Name := #[]
+  for e in na.entries do
+    match eb.get? e.typeHash with
+    | none => gone := gone.push e.name
+    | some cands =>
+      if cands.any (·.stmt == e.stmt) then survived := survived + 1
+      else moved := moved.push (e.name, cands.map (·.name))
+  let pct (x y : Nat) : String := if y == 0 then "-" else s!"{x * 1000 / y / 10}.{x * 1000 / y % 10}%"
+  IO.println s!"{a} ({tc na}) → {b} ({tc nb})"
+  IO.println s!"  declarations by name: {common} in both, {onlyA} only in the first, {onlyB} only in the second"
+  IO.println s!"    stmt unchanged: {sameStmt} ({pct sameStmt common}); theorems: {thmSameStmt}/{thm} ({pct thmSameStmt thm})"
+  IO.println s!"    ref unchanged:  {sameRef} ({pct sameRef common});  decl unchanged: {sameDecl} ({pct sameDecl common})"
+  IO.println s!"  entries by type_hash: {survived} survived (same stmt), {moved.size} coarse matches whose stmt changed (candidates to confirm), {gone.size} with no coarse match"
+  for n in changed.toList.take 20 do IO.println s!"    stmt changed: {n}"
+  for (n, cs) in moved.toList.take 20 do IO.println s!"    candidate: {n} ~ {cs}"
+  for n in gone.toList.take 20 do IO.println s!"    gone: {n}"
+  return 0
+
+def migrateCmd : Cli.Cmd := `[Cli|
+  migrate VIA runMigrateCmd; ["0.2.1"]
+  "Compare two nodes (two toolchains, two revisions): which statements survived by name, by stmt, by type_hash."
+
+  ARGS:
+    a : String; "The older node file"
+    b : String; "The newer node file"
 ]
 
 -- Keys (CA.Ed25519, pure Lean): `ca keygen`, `--sign KEYFILE`
@@ -941,6 +1005,7 @@ def caCmd : Cli.Cmd := `[Cli|
     mergeCmd;
     digestCmd;
     diffCmd;
+    migrateCmd;
     lookupCmd;
     fetchSourcesCmd;
     selftestCmd

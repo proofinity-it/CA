@@ -106,7 +106,11 @@ six decoration vectors in `payload.md` §9 checked by both
 implementations; `tools/fuzz_node.py` (400 mutations clean after it found
 that an uncaught `IO` error made `ca` crash instead of reporting, and
 two unguarded reads in the Python checker); a property test of 300
-random declarations in `node-test`. Left: the two measurements.
+random declarations in `node-test`; measurement A (`tools/measure.sh A`,
+result in `payload.md` §7: statement mode and full mode agree on every
+`stmt` and `ref` of `Init`). Left: measurement B, which needs `Init`
+packed on a second toolchain (`tools/measure.sh B OLD NEW`, over
+`ca migrate`).
 
 ## 5. Scale
 
@@ -119,7 +123,14 @@ Init packs in about 2.5 minutes; Mathlib is about forty times larger.
 | Incremental pack: `--base PREVIOUS.sqlite` reuses the units of declarations whose `decl` is unchanged | `CA.Node`, CLI | repacking an unchanged project re-encodes nothing |
 | Compression: zstd for units, with and without a trained dictionary, measured | `nodefile/` (zstd would be a native dependency; measure first) | a size table in `payload.md` §7, then a decision |
 
-Status: **not started.**
+Status: **first goal met** (2026-10-23). The encoder recomputed every
+unit's ids although the pack had just computed them for the whole cone:
+passing them in (`encodeUnit (ids? := …)`) took the `Init` pack from
+160 s to 53 s, with the self-check (rebuilding every unit from its own
+output) costing 6 s of that; `ca pack --fast` skips it (47 s). The
+`deps` table is opt-in (`--deps`): on `Init` it was 1.16 M rows and
+doubled the file (285 MB against 121 MB). Not started: parallel
+encoding, incremental pack, compression.
 
 ## 6. Toolchain releases
 
@@ -127,14 +138,20 @@ Status: **not started.**
 |---|---|---|
 | `ca migrate A B`: pair the entries of two nodes on different toolchains by `type_hash`, confirm by `stmt`, and report what survived, what moved and what broke | `CA.Node`, CLI | measurement B is its output on Init |
 
-Status: **not started.**
+Status: **tool done** (2026-10-23): `ca migrate` reports, by name, how
+many declarations kept `stmt`, `ref` and `decl`, and, by entry, the
+`type_hash` pairs confirmed or not by `stmt`. Measurement B itself (two
+toolchains) is still to run; see item 4.
 
 ## 7. Smaller things
 
 | deliverable | done when |
 |---|---|
-| An example project a reader can look at without building: the fixture's `registry/` folder and a node file committed, with a README | the files are in the repository and CI checks they are current |
+| An example project a reader can look at without building: the fixture's `registry/` folder committed, with a README | the files are in the repository and CI checks they are current |
 | `payload.md` §8: drop "naming variants in the protocol", which §6 of the protocol settled | done in the same change as this plan |
 | `docs/building.md` and the README building row say three packages | done in the same change as this plan |
 
-Status: **not started.**
+Status: **done** (2026-10-23). `cli/tests/fixture/` is the example: its
+`registry/` is committed and `node-test.sh` fails if a rebuild changes it.
+A node file is not committed: SQLite output is not byte-deterministic, so
+it would churn on every build; `ca pack` on the fixture takes a second.

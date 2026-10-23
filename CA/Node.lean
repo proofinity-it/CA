@@ -276,7 +276,8 @@ def blockSiblings (ci : ConstantInfo) : List Name :=
 def packDecls (decls : Array (Name × ConstantInfo)) (base : RefTable)
     (roots : Array Name := decls.map (·.1)) (withProofs : Bool := true)
     (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher)
-    (info : Array (String × String) := #[]) : IO (Node × PackReport × Array DeclIds) := do
+    (info : Array (String × String) := #[]) (selfCheck : Bool := true) (withDeps : Bool := true) :
+    IO (Node × PackReport × Array DeclIds) := do
   let find : Std.HashMap Name ConstantInfo := decls.foldl (fun m (n, ci) => m.insert n ci) {}
   let mut missing : Array String := #[]
   for (n, ci) in decls do
@@ -310,7 +311,9 @@ def packDecls (decls : Array (Name × ConstantInfo)) (base : RefTable)
     for n in comp do
       done := done.insert n
       if let some ci := find.get? n then input := input.push (n, ci)
-    match ← encodeUnit input table node.table hasher withProofs with
+    -- The ids were computed once above; the encoder need not recompute them.
+    let knownIds : Option (Array DeclIds) := input.mapM fun (n, _) => byName.get? n
+    match ← encodeUnit input table node.table hasher withProofs knownIds selfCheck with
     | .error e => rep := { rep with errors := rep.errors.push s!"{r}: {e}" }
     | .ok (enc, ft) =>
       node := { node with table := ft }
@@ -326,9 +329,11 @@ def packDecls (decls : Array (Name × ConstantInfo)) (base : RefTable)
         let ci := find.get! di.name
         rep := { rep with unresolved := rep.unresolved + di.unresolved.size,
                           declarations := rep.declarations + 1 }
-        -- Dependencies: the references outside this unit, by ref id.
+        -- Dependencies: the references outside this unit, by ref id. Derivable
+        -- from the unit (a checker confirms them against its slots), so a pack
+        -- may leave them out: on Init they are 1.16 M rows, more than the units.
         let mut seenRef : Std.HashSet ByteArray := {}
-        for m in (RefHash.refsOf ci withProofs).toList do
+        for m in (if withDeps then (RefHash.refsOf ci withProofs).toList else []) do
           if compSet.contains m then continue
           if let some r := table.get? m then
             if !seenRef.contains r then
@@ -371,7 +376,8 @@ def packDecls (decls : Array (Name × ConstantInfo)) (base : RefTable)
 def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool := true)
     (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher)
     (cacheDir : Option System.FilePath := some CA.Registry.defaultCacheDir)
-    (info : Array (String × String) := #[]) : IO (Node × PackReport) := do
+    (info : Array (String × String) := #[]) (selfCheck : Bool := true) (withDeps : Bool := true) :
+    IO (Node × PackReport) := do
   let cone := coneOf env roots withProofs
   let cachePath ← match cacheDir with
     | some d =>
@@ -382,7 +388,7 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
     | none => pure {}
   let rootSet : NameSet := roots.foldl (·.insert ·) {}
   let todo := cone.filter fun (n, _) => rootSet.contains n || !base.contains n
-  let (node0, rep0, ids) ← packDecls todo base roots withProofs hasher info
+  let (node0, rep0, ids) ← packDecls todo base roots withProofs hasher info selfCheck withDeps
   let mut node := node0
   let mut rep := rep0
   if let some p := cachePath then

@@ -288,6 +288,17 @@ unit.
   table holds 36,097 refs and 43,482 names. 158 keys have naming
   variants.
 
+**Full mode against statement mode, `Init` (2026-10-23, `tools/measure.sh A`).**
+The same 65,972 declarations packed with proofs (`--all`) and without
+(`--all --no-proofs`): `stmt` agrees on 65,972 of 65,972, `ref` on every
+theorem (45,494) and every non-theorem (20,478). Statement mode changes
+no id a dependent can see; it drops 839 units (proof-only auxiliaries),
+22,000 refs and 27,000 names from the file, and packs in 89 s instead of
+160 s (before the encoder stopped recomputing ids; a full pack is now
+53 s, 47 s with `--fast`, file 121 MB, checked in 32 s). The `deps` table, when written (`--deps`), is 1,156,596 rows on
+`Init`, more bytes than the units; it is derivable from them and off by
+default.
+
 **Size against declbuild's payload, Mathlib.** declbuild's
 `payload-probe` (2026-10-22) encoded 4,827 random Mathlib v4.35.0
 declarations in draft 1's shape (without name slots), all

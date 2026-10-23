@@ -14,8 +14,11 @@ fail=0
 ok()  { echo "  ok   $1"; }
 bad() { echo "  FAIL $1"; fail=1; }
 
-for mode in "" --own --no-proofs; do
-  out="node${mode}.sqlite"
+# The committed registry folder is what a build writes today.
+if git diff --quiet -- registry && [ -z "$(git ls-files --others --exclude-standard -- registry)" ]; then ok "committed registry/ is current"; else bad "registry/ differs from the committed folder"; git status --porcelain -- registry; fi
+
+for mode in "" --own --no-proofs "--own --deps"; do
+  out="node${mode// /}.sqlite"
   lake env "$ca" pack -m Fixture $mode -o "$out" >/dev/null 2>&1 || { bad "pack $mode"; continue; }
   if lake env "$ca" check "$out" >/dev/null 2>&1; then ok "pack ${mode:-(entries)} + check: no faults"; else bad "check $mode"; fi
   # The independent Python checker (written from the documents) must agree.

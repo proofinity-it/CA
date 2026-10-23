@@ -50,6 +50,16 @@
   gains six decoration vectors, checked by `registry_ref.py --vectors`
   and `node-test`; `node-test` also packs, checks and rebuilds 300 random
   declarations.
+- Scale, migration, example (plan items 5 to 7). The encoder reuses the
+  ids the pack computed for the cone instead of recomputing them per
+  unit: `Init` packs in 53 s instead of 160 s; `ca pack --fast` skips the
+  self-check (47 s); the `deps` table is opt-in (`--deps`; 1.16 M rows on
+  `Init`). `ca migrate A B` compares two nodes by name (`stmt`, `ref`,
+  `decl` kept) and by entry (`type_hash` pairs confirmed by `stmt`).
+  Measurement A (`tools/measure.sh A`): full and statement mode agree on
+  every `stmt` and `ref` of `Init`. The CLI fixture is the example
+  project: `cli/tests/fixture/registry/` is committed with a README and
+  the end-to-end test fails if a rebuild changes it.
 - `docs/plan.md`: the development plan, with a status line per item;
   listed in the README and the docs index. `payload.md` §8 drops the
   naming-variant question the protocol settled.

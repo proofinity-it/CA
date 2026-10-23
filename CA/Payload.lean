@@ -860,10 +860,15 @@ def sameConstant (a b : ConstantInfo) (binderNames := true) : Bool :=
     out in canonical order (`spec.md` §9.4) with their ids; decorations
     cite `ft`, which is returned extended. -/
 def encodeUnit (decls : Array (Name × ConstantInfo)) (table : RefTable) (ft : FileTable)
-    (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher) (withProofs : Bool := true) :
+    (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher) (withProofs : Bool := true)
+    (ids? : Option (Array DeclIds) := none) (selfCheck : Bool := true) :
     IO (Except String (Encoded × FileTable)) := do
   if decls.isEmpty then return .error "nothing to encode"
-  let (ids, _) ← CA.RefHash.computeIds decls table hasher withProofs
+  -- The ids: given by the caller (a pack computes them once for the whole
+  -- cone), or computed here.
+  let ids ← match ids? with
+    | some i => pure i
+    | none => pure (← CA.RefHash.computeIds decls table hasher withProofs).1
   let byName : Std.HashMap Name ConstantInfo := decls.foldl (fun m (n, ci) => m.insert n ci) {}
   -- Canonical member order, and the form.
   let mut form0 := Form.standalone
@@ -928,18 +933,20 @@ def encodeUnit (decls : Array (Name × ConstantInfo)) (table : RefTable) (ft : F
       let hints := match ci with | .defnInfo v => some v.hints | _ => none
       let d : Decoration := ⟨ci.name, i, refNames, ci.levelParams.toArray, binders, hints⟩
       decos := decos.push d
-    -- Self-check: rebuild and compare.
+    -- Self-check: rebuild and compare (skipped by a pack that trusts the
+    -- codec, as the property and round-trip tests entitle it to).
     let mut inexact := #[]
-    match rebuild data ft decos with
-    | .error e => return .error s!"rebuild failed: {e}"
-    | .ok back =>
-      for i in [:members.size] do
-        let orig := byName.get! members[i]!.name
-        let (_, ci) := back[i]!
-        let orig := if withProofs then orig else match orig with
-          | .thmInfo v => .thmInfo { v with value := .sort .zero }
-          | c => c
-        if !sameConstant orig ci then inexact := inexact.push orig.name
+    if selfCheck then
+      match rebuild data ft decos with
+      | .error e => return .error s!"rebuild failed: {e}"
+      | .ok back =>
+        for i in [:members.size] do
+          let orig := byName.get! members[i]!.name
+          let (_, ci) := back[i]!
+          let orig := if withProofs then orig else match orig with
+            | .thmInfo v => .thmInfo { v with value := .sort .zero }
+            | c => c
+          if !sameConstant orig ci then inexact := inexact.push orig.name
     let out : Encoded := ⟨form, key, data.toBytes, data, members,
       decos.map fun d => (d.own, d.toBytes), inexact.isEmpty, inexact, st.collisions⟩
     return .ok (out, ft)

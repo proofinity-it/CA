@@ -62,7 +62,11 @@ by id, not packed. Which declarations:
 `--no-proofs` packs theorems in statement mode. The imported part of the
 reference table is cached under `.lake/ca/`, as for `#ca_registry`. The
 packer rebuilds every unit from its own output and reports any member
-that does not come back exactly.
+that does not come back exactly; `--fast` skips that self-check.
+`--deps` also writes the `deps` table (every declaration's references by
+ref id): derivable from the units and large, so off by default.
+`--sign KEY [--label L]` claims a namespace and binds the entries (see
+`keygen`).
 
 ## `check`
 
@@ -72,8 +76,8 @@ every member, declaration, witness and entry row must agree with its
 unit; every decoration must rebuild declarations whose ids, computed
 from the names it gives, are the unit's. Reports naming variants and
 units with names hashed by name, lists faults, and exits 1 if there are
-any. Measured: all of `Init` (65,972 declarations with proofs, 114 MB)
-packs in about 2.5 min and checks in about 30 s. Signed rows (records,
+any. Measured: all of `Init` (65,972 declarations with proofs, 121 MB)
+packs in 53 s (47 s with `--fast`) and checks in 32 s. Signed rows (records,
 namespace claims, bindings) must verify under their keys.
 
 ## `verify`
@@ -109,6 +113,16 @@ with counts, as JSON. `ca diff A B` compares two nodes through those
 digests, opening only the buckets that differ, and lists the keys each
 holds that the other lacks, with a name where the file binds one. Exit 2
 when they differ.
+
+## `migrate`
+
+`ca migrate A B` compares two nodes, typically the same project packed on
+two toolchains or at two revisions. By name: how many declarations are in
+both and how many kept their `stmt`, `ref` and `decl`. By entry: pairs on
+`type_hash` (the coarse tier), confirmed by `stmt` (exact), so a reader
+sees what survived, which coarse matches are candidates to confirm, and
+what has no match at all. This is the README's second rule as a tool, and
+the method of measurement B in `docs/plan.md`.
 
 ## `keygen`
 
