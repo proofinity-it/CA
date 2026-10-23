@@ -63,7 +63,7 @@ Everything lives in the `CA` repository. Downstream projects depend on
 a single package:
 
 ```lean
-require ca from git "https://github.com/proofinity-it/CA" @ "v0.2.1"
+require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.0"
 ```
 
 Source tree (items marked *planned* are not yet implemented):
@@ -328,7 +328,7 @@ can override it with a project-local `sources.json`.
 
 A project joins the global registry by:
 
-1. Adding `require ca from git "https://github.com/proofinity-it/CA" @ "v0.2.1"`
+1. Adding `require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.0"`
    to its `lakefile.lean`.
 2. Annotating declarations with `@[publish]` or `@[open_point]`.
 3. Adding `#ca_registry "registry/"` at the end of a module (or running

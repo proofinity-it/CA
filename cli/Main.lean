@@ -322,7 +322,7 @@ def runFetchCmd (p : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def fetchCmd : Cli.Cmd := `[Cli|
-  fetch VIA runFetchCmd; ["0.2.1"]
+  fetch VIA runFetchCmd; ["0.3.0"]
   "Load Mathlib environment, compute content addresses, and store everything in Redis."
 
   FLAGS:
@@ -442,7 +442,7 @@ def runAddressCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def addressCmd : Cli.Cmd := `[Cli|
-  address VIA runAddressCmd; ["0.2.1"]
+  address VIA runAddressCmd; ["0.3.0"]
   "Compute content addresses for all declarations and export manifest."
 
   FLAGS:
@@ -481,7 +481,7 @@ def runRegistryCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def registryCmd : Cli.Cmd := `[Cli|
-  registry VIA runRegistryCmd; ["0.2.1"]
+  registry VIA runRegistryCmd; ["0.3.0"]
   "Generate a project registry from @[publish] and @[open_point] annotations."
 
   FLAGS:
@@ -557,7 +557,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
   return if rep.errors.isEmpty then 0 else 1
 
 def packCmd : Cli.Cmd := `[Cli|
-  pack VIA runPackCmd; ["0.2.1"]
+  pack VIA runPackCmd; ["0.3.0"]
   "Write a registry node file (SQLite, docs/payload.md): units, decorations, statements."
 
   FLAGS:
@@ -591,7 +591,7 @@ def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
   return 1
 
 def checkCmd : Cli.Cmd := `[Cli|
-  check VIA runCheckCmd; ["0.2.1"]
+  check VIA runCheckCmd; ["0.3.0"]
   "Check a node file: every unit's ids recomputed from its bytes, every row against its unit, every decoration rebuilt."
 
   ARGS:
@@ -619,7 +619,7 @@ def runMergeCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def mergeCmd : Cli.Cmd := `[Cli|
-  merge VIA runMergeCmd; ["0.2.1"]
+  merge VIA runMergeCmd; ["0.3.0"]
   "Union of node files into one, re-encoded against one ref table and checked (ids unchanged; bindings: highest seq wins)."
 
   ARGS:
@@ -638,7 +638,7 @@ def runDigestCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def digestCmd : Cli.Cmd := `[Cli|
-  digest VIA runDigestCmd; ["0.2.1"]
+  digest VIA runDigestCmd; ["0.3.0"]
   "Range digests of a node's content keys: one SHA-256 per id-prefix bucket, for reconciliation."
 
   FLAGS:
@@ -665,7 +665,7 @@ def runDiffCmd (p : Cli.Parsed) : IO UInt32 := do
   return if onlyA.isEmpty && onlyB.isEmpty then 0 else 2
 
 def diffCmd : Cli.Cmd := `[Cli|
-  diff VIA runDiffCmd; ["0.2.1"]
+  diff VIA runDiffCmd; ["0.3.0"]
   "What two node files hold that the other lacks, found through range digests. Exit 2 when they differ."
 
   FLAGS:
@@ -729,7 +729,7 @@ def runMigrateCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def migrateCmd : Cli.Cmd := `[Cli|
-  migrate VIA runMigrateCmd; ["0.2.1"]
+  migrate VIA runMigrateCmd; ["0.3.0"]
   "Compare two nodes (two toolchains, two revisions): which statements survived by name, by stmt, by type_hash."
 
   ARGS:
@@ -752,7 +752,7 @@ def runKeygenCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def keygenCmd : Cli.Cmd := `[Cli|
-  keygen VIA runKeygenCmd; ["0.2.1"]
+  keygen VIA runKeygenCmd; ["0.3.0"]
   "Generate an Ed25519 key for signing records and bindings; prints the public key."
 
   ARGS:
@@ -797,7 +797,7 @@ def runVerifyCmd (p : Cli.Parsed) : IO UInt32 := do
   return 1
 
 def verifyCmd : Cli.Cmd := `[Cli|
-  verify VIA runVerifyCmd; ["0.2.1"]
+  verify VIA runVerifyCmd; ["0.3.0"]
   "Rebuild every declaration of a node file and let the kernel judge it; one verification record per accepted theorem."
 
   FLAGS:
@@ -896,7 +896,7 @@ def runLookupCmd (p : Cli.Parsed) : IO UInt32 := do
   return if n > 0 then 0 else 2
 
 def lookupCmd : Cli.Cmd := `[Cli|
-  lookup VIA runLookupCmd; ["0.2.1"]
+  lookup VIA runLookupCmd; ["0.3.0"]
   "Ask every source in sources.json about a statement id (base58), a coarse hash (hex) or a name. Exit 2 when nothing answers."
 
   FLAGS:
@@ -947,7 +947,7 @@ def runFetchSourcesCmd (p : Cli.Parsed) : IO UInt32 := do
   return if failed == 0 then 0 else 1
 
 def fetchSourcesCmd : Cli.Cmd := `[Cli|
-  "fetch-sources" VIA runFetchSourcesCmd; ["0.2.1"]
+  "fetch-sources" VIA runFetchSourcesCmd; ["0.3.0"]
   "Copy the URL sources of sources.json into the local cache."
 
   FLAGS:
@@ -984,14 +984,14 @@ def runSelftestCmd (_ : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def selftestCmd : Cli.Cmd := `[Cli|
-  selftest VIA runSelftestCmd; ["0.2.1"]
+  selftest VIA runSelftestCmd; ["0.3.0"]
   "Check that the OpenSSL SHA-256 agrees with the library's pure implementation."
 ]
 
 -- Top-level CLI
 
 def caCmd : Cli.Cmd := `[Cli|
-  ca NOOP; ["0.2.1"]
+  ca NOOP; ["0.3.0"]
   "Content-addressed declaration hashing for Lean 4 environments."
 
   SUBCOMMANDS:

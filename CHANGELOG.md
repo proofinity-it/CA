@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 — 2026-10-23 — a node you can consume, check, sign and merge
+
+Ids are unchanged (encoding scheme 1, as v0.1.0 to v0.2.1). The `ca` CLI
+gains `lookup`, `fetch-sources`, `verify`, `keygen`, `merge`, `digest`,
+`diff` and `migrate`; node files gain `deps` (opt-in), `records`,
+`namespaces` and `bindings`, and entries are keyed by (name, stmt).
 
 - Consuming registries (plan item 1). `sources.json` lists the registries
   a project consults: folder (`registry/`) or node file, local path or

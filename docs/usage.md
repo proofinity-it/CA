@@ -9,7 +9,7 @@ In your project's `lakefile.lean`:
 
 ```lean
 require ca from git
-  "https://github.com/proofinity-it/CA" @ "v0.2.1"
+  "https://github.com/proofinity-it/CA" @ "v0.3.0"
 ```
 
 Tags are release versions (the current release builds on Lean
@@ -201,7 +201,7 @@ declarations and witnesses a node holds for a statement
 
 ```
 my-project/
-├── lakefile.lean                  # require ca from git "..." @ "v0.2.1"
+├── lakefile.lean                  # require ca from git "..." @ "v0.3.0"
 ├── MyProject/
 │   ├── Definitions.lean           # @[open_point] annotations
 │   ├── Theorems.lean              # @[publish] annotations
