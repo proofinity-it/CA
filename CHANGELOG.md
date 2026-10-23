@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- `CA.Node.packDecls`: the rows of a node from declarations and the ids
+  of what they reference, with no `Environment`, so a store that holds
+  declarations and ids (declbuild's Redis) can write a node file.
+  `packEnvironment` now walks the cone and calls it. A block given with a
+  member missing is refused and the member named (`blockSiblings`): the
+  standalone encoding does not mention mutual siblings, so such a
+  declaration would get other ids with nothing hashed by name to show
+  it. `lake exe node-test`: the two paths give the same rows byte for
+  byte, `checkNode` finds no fault, the partial block is refused. An
+  `Init --all` pack is unchanged (55,757 units).
 - `registry-protocol.md` §15 brought up to date with declbuild
   (2026-10-23: `sorryAx` gate, scheme separation done) and with what CA
   v0.2.0 itself provides (statement units, node files, `ca check`).

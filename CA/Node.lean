@@ -8,8 +8,10 @@ import CA.Registry.Generate
 A node, as published, is a set of rows: the file's ref and name tables,
 units, members, decorations (`docs/payload.md` §6), and the declaration,
 witness, statement and entry rows that index them. This module builds
-those rows from a Lean environment (`packEnvironment`) and checks a set
-of rows (`checkNode`). It holds no file format: the `ca` CLI writes and
+those rows from declarations and the ids of what they reference
+(`packDecls`, no `Environment` needed: a store such as declbuild's packs
+from what it holds), or from a Lean environment (`packEnvironment`), and
+checks a set of rows (`checkNode`). It holds no file format: the `ca` CLI writes and
 reads the rows as one SQLite file (`ca pack`, `ca check`), and any other
 store can hold the same rows.
 -/
@@ -99,34 +101,41 @@ structure PackReport where
   unresolved : Nat := 0
   deriving Inhabited
 
-/-- Build a node from `env`. `roots` are the declarations to pack (each
-    with its whole block); their dependencies are referenced by id, not
-    packed. With `withProofs := false` theorems are packed in statement
-    mode. Registry entries (`@[publish]` / `@[open_point]`) get a
-    statement unit and an entry row. `cacheDir` caches the imported part
-    of the reference table, as `#ca_registry` does. -/
-def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool := true)
+/-- The declarations hashed in one block with `ci`, by the declaration's own
+    fields: mutual siblings, an inductive's constructors, a constructor's
+    inductive. Hashing `ci` without all of them gives other ids, and no
+    by-name fallback reports it (the standalone encoding does not mention
+    siblings), so `packDecls` refuses a block with a member missing. -/
+def blockSiblings (ci : ConstantInfo) : List Name :=
+  let others (ns : List Name) := ns.filter (· != ci.name)
+  match ci with
+  | .defnInfo v => others v.all
+  | .thmInfo v => others v.all
+  | .opaqueInfo v => others v.all
+  | .inductInfo v => others v.all ++ v.ctors
+  | .ctorInfo v => [v.induct]
+  | _ => []
+
+/-- Build the declaration rows of a node from declarations alone, with no
+    `Environment`. `decls` holds every declaration to hash: each root with
+    its whole block (with a member left out the ids differ, so nothing is
+    packed and `errors` names it). `base` gives the ids of everything they reference that is not
+    in `decls`. `roots` (default: all of `decls`) are packed; the rest of
+    `decls` is hashed, so roots can cite it by id, but not packed. Returns
+    the ids `CA.RefHash` gave every declaration in `decls` as well, so a
+    store can compare them with the ids it holds. -/
+def packDecls (decls : Array (Name × ConstantInfo)) (base : RefTable)
+    (roots : Array Name := decls.map (·.1)) (withProofs : Bool := true)
     (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher)
-    (cacheDir : Option System.FilePath := some CA.Registry.defaultCacheDir)
-    (info : Array (String × String) := #[]) : IO (Node × PackReport) := do
-  let cone := coneOf env roots withProofs
-  let cachePath ← match cacheDir with
-    | some d =>
-      pure (some (d / s!"reftable-{if withProofs then "full" else "stmt"}-{← CA.Registry.importsCacheKey env}.bin"))
-    | none => pure none
-  let base : RefTable ← match cachePath with
-    | some p => pure ((← CA.Registry.readRefTable p).getD {})
-    | none => pure {}
-  let rootSet : NameSet := roots.foldl (·.insert ·) {}
-  let todo := cone.filter fun (n, _) => rootSet.contains n || !base.contains n
-  let (ids, table) ← RefHash.computeIds todo base hasher withProofs
-  if let some p := cachePath then
-    let mut cache := base
-    for d in ids do
-      if d.unresolved.isEmpty && (env.getModuleIdxFor? d.name).isSome then
-        cache := cache.insert d.name d.ref
-    if cache.size > base.size then
-      try CA.Registry.writeRefTable p cache catch _ => pure ()
+    (info : Array (String × String) := #[]) : IO (Node × PackReport × Array DeclIds) := do
+  let find : Std.HashMap Name ConstantInfo := decls.foldl (fun m (n, ci) => m.insert n ci) {}
+  let mut missing : Array String := #[]
+  for (n, ci) in decls do
+    for m in blockSiblings ci do
+      if !find.contains m then missing := missing.push s!"{n}: block member {m} is not given"
+  if !missing.isEmpty then
+    return ({ info }, { errors := missing }, #[])
+  let (ids, table) ← RefHash.computeIds decls base hasher withProofs
   let byName : Std.HashMap Name DeclIds := ids.foldl (fun m d => m.insert d.name d) {}
   -- Blocks by id; twin blocks share an id, so split by the reference graph.
   let mut byBlock : Std.HashMap ByteArray (Array Name) := {}
@@ -135,7 +144,7 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
   let mut sccOf : Std.HashMap Name (Array Name) := {}
   for (_, g) in byBlock.toArray do
     let succ (n : Name) : Array Name :=
-      match env.find? n with
+      match find.get? n with
       | some ci => (RefHash.refsOf ci withProofs).toArray
       | none => #[]
     for comp in RefHash.sccs g succ do
@@ -151,7 +160,7 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
     let mut input := #[]
     for n in comp do
       done := done.insert n
-      if let some ci := env.find? n then input := input.push (n, ci)
+      if let some ci := find.get? n then input := input.push (n, ci)
     match ← encodeUnit input table node.table hasher withProofs with
     | .error e => rep := { rep with errors := rep.errors.push s!"{r}: {e}" }
     | .ok (enc, ft) =>
@@ -164,7 +173,7 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
         rep := { rep with units := rep.units + 1 }
       for i in [:enc.ids.size] do
         let di := enc.ids[i]!
-        let ci := (env.find? di.name).get!
+        let ci := find.get! di.name
         rep := { rep with unresolved := rep.unresolved + di.unresolved.size,
                           declarations := rep.declarations + 1 }
         node := { node with
@@ -173,7 +182,55 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
           declarations := node.declarations.push ⟨di.decl, CA.Util.constantKind ci, di.stmt, di.ref⟩ }
         if let .thmInfo _ := ci then
           node := { node with witnesses := node.witnesses.push (di.stmt, di.decl) }
+  -- Deduplicate declaration rows (twins are separate members, one decl).
+  let mut seenDecl : Std.HashSet ByteArray := {}
+  let mut rows := #[]
+  for d in node.declarations do
+    if !seenDecl.contains d.decl then
+      seenDecl := seenDecl.insert d.decl
+      rows := rows.push d
+  let mut seenW : Std.HashSet (ByteArray × ByteArray) := {}
+  let mut ws := #[]
+  for w in node.witnesses do
+    if !seenW.contains w then
+      seenW := seenW.insert w
+      ws := ws.push w
+  return ({ node with declarations := rows, witnesses := ws }, rep, ids)
+
+/-- Build a node from `env`. `roots` are the declarations to pack (each
+    with its whole block); their dependencies are referenced by id, not
+    packed. With `withProofs := false` theorems are packed in statement
+    mode. Registry entries (`@[publish]` / `@[open_point]`) get a
+    statement unit and an entry row. `cacheDir` caches the imported part
+    of the reference table, as `#ca_registry` does. The rows themselves
+    come from `packDecls`. -/
+def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool := true)
+    (hasher : CA.SHA256.Hasher := CA.SHA256.pureHasher)
+    (cacheDir : Option System.FilePath := some CA.Registry.defaultCacheDir)
+    (info : Array (String × String) := #[]) : IO (Node × PackReport) := do
+  let cone := coneOf env roots withProofs
+  let cachePath ← match cacheDir with
+    | some d =>
+      pure (some (d / s!"reftable-{if withProofs then "full" else "stmt"}-{← CA.Registry.importsCacheKey env}.bin"))
+    | none => pure none
+  let base : RefTable ← match cachePath with
+    | some p => pure ((← CA.Registry.readRefTable p).getD {})
+    | none => pure {}
+  let rootSet : NameSet := roots.foldl (·.insert ·) {}
+  let todo := cone.filter fun (n, _) => rootSet.contains n || !base.contains n
+  let (node0, rep0, ids) ← packDecls todo base roots withProofs hasher info
+  let mut node := node0
+  let mut rep := rep0
+  if let some p := cachePath then
+    let mut cache := base
+    for d in ids do
+      if d.unresolved.isEmpty && (env.getModuleIdxFor? d.name).isSome then
+        cache := cache.insert d.name d.ref
+    if cache.size > base.size then
+      try CA.Registry.writeRefTable p cache catch _ => pure ()
   -- Registry entries: statement units and entry rows.
+  let mut seenUnit : Std.HashSet (ByteArray × ByteArray) :=
+    node.units.foldl (fun s u => s.insert (u.key, u.variant)) {}
   let ann := CA.Registry.annotated env
   if !ann.isEmpty then
     let (eids, stable) ← CA.Registry.computeEntryIdsAndTable env (ann.map (·.1)) hasher cacheDir
@@ -192,20 +249,7 @@ def packEnvironment (env : Environment) (roots : Array Name) (withProofs : Bool 
           node := { node with units := node.units.push ⟨enc.key, variant, .statement, enc.bytes⟩ }
         node := { node with entries := node.entries.push ⟨e.name, e.stmt, e.status.toString, e.address⟩ }
         rep := { rep with statements := rep.statements + 1 }
-  -- Deduplicate declaration rows (twins are separate members, one decl).
-  let mut seenDecl : Std.HashSet ByteArray := {}
-  let mut decls := #[]
-  for d in node.declarations do
-    if !seenDecl.contains d.decl then
-      seenDecl := seenDecl.insert d.decl
-      decls := decls.push d
-  let mut seenW : Std.HashSet (ByteArray × ByteArray) := {}
-  let mut ws := #[]
-  for w in node.witnesses do
-    if !seenW.contains w then
-      seenW := seenW.insert w
-      ws := ws.push w
-  return ({ node with declarations := decls, witnesses := ws }, rep)
+  return (node, rep)
 
 /-! ## Checking -/
 

@@ -33,3 +33,8 @@ lean_exe "registry-test" where
 lean_exe "payload-test" where
   root := `PayloadTest
   supportInterpreter := true
+
+/-- `CA.Node.packDecls` against `packEnvironment`: packing without an environment. -/
+lean_exe "node-test" where
+  root := `NodeTest
+  supportInterpreter := true

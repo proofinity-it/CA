@@ -4,7 +4,7 @@ The repository holds two Lake packages:
 
 | Directory | Package | Contents | Native deps |
 |---|---|---|---|
-| `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test` | **none**: pure Lean, Batteries only |
+| `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test`, `node-test` | **none**: pure Lean, Batteries only |
 | `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on a fixture project) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite is bundled by leansqlite |
 
 The library is what downstream projects `require`; it hashes with a
@@ -22,6 +22,7 @@ lake build
 lake exe refhash-test
 lake exe registry-test
 lake exe payload-test     # ~5 min: round-trips every Init declaration
+lake exe node-test        # seconds: packDecls gives packEnvironment's rows
 
 # Independent Python implementations (standard library only)
 python3 -I tools/refhash_ref.py              # spec.md §12 vectors
