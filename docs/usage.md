@@ -144,6 +144,10 @@ my-project/
 
 ## Step 5: Publish
 
+The directory is resolved against your package's root (the directory of
+its lakefile), not the working directory, so the registry lands in your
+project even when another project builds yours as a dependency.
+
 Commit the `registry/` folder to your git repo and push. Your
 declarations are now published under their content addresses, and
 anyone who clones the repository can verify them by rebuilding and

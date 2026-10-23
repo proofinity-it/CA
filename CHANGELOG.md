@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- `#ca_registry` resolves a relative output directory against the module's
+  package root (the nearest lakefile above the file), not the working
+  directory: when Lake builds a project as a dependency of another, its
+  registry used to be written into the dependent's directory and then
+  overwritten by the dependent's own. Found by `examples/consume`.
+- `examples/`: `publish` (the former CLI fixture, moved; its `registry/`
+  committed), `consume` (requires `publish`, lists its registry in
+  `sources.json`, uses `#ca_lookup` and `resolve%`, and proves one of its
+  open points, so its own registry shows the cross-project cascade), and
+  `walkthrough.sh` (pack, check, verify, keygen, sign, merge, diff,
+  lookup over the two), run by CI.
 - README and docs brought in line with v0.3.0: the CLI row lists every
   subcommand; `how-it-works.md`, `registry-design.md` and the README no
   longer call discovery and resolution unimplemented; three Lake packages.

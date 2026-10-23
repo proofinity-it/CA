@@ -6,7 +6,7 @@ The repository holds three Lake packages:
 |---|---|---|---|
 | `.` | `ca` | the `CA` library (default target, precompiled) and the test executables `refhash-test`, `registry-test`, `payload-test`, `node-test` | **none**: pure Lean, Batteries only |
 | `nodefile/` | `ca-nodefile` | `CaNodeFile`: the node file as SQLite (`CA.NodeFile.writeNode` / `readNode`, `registry-protocol.md` §12); required by `cli/` and by stores that write node files (declbuild) | none to install: leansqlite bundles the SQLite amalgamation (needs a C compiler `cc`) |
-| `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on a fixture project) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite through `nodefile/` |
+| `cli/` | `ca-cli` | the `ca` command-line tool; `cli/tests/node-test.sh` (pack / check end to end on `examples/publish`) | OpenSSL, hiredis (+ zlog via redis-lean); SQLite through `nodefile/` |
 
 The library is what downstream projects `require`; it hashes with a
 pure-Lean SHA-256 and needs no system headers or link flags on any
@@ -37,7 +37,8 @@ python3 -I tools/fuzz_node.py --ca cli/.lake/build/bin/ca --rounds 300   # mutat
 cd cli
 lake build
 .lake/build/bin/ca --help
-tests/node-test.sh        # ca pack / ca check end to end on tests/fixture
+tests/node-test.sh        # ca pack / ca check end to end on examples/publish
+bash ../examples/walkthrough.sh   # the two example projects: publish, consume, pack, verify, sign, merge
 ```
 
 ## Continuous integration

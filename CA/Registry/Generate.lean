@@ -599,12 +599,38 @@ def checkStatementsFile (path : System.FilePath) (hasher : Hasher := pureHasher)
           | .ok _ => checked := checked + 1
   return (checked, errors)
 
+/-- The nearest directory above `file` holding a `lakefile.lean` or
+    `lakefile.toml`: the package the module belongs to. -/
+partial def packageRootOf (file : System.FilePath) : IO (Option System.FilePath) := do
+  let rec up (dir : System.FilePath) (fuel : Nat) : IO (Option System.FilePath) := do
+    if fuel == 0 then return none
+    if (← (dir / "lakefile.lean").pathExists) || (← (dir / "lakefile.toml").pathExists) then return some dir
+    match dir.parent with
+    | some p => if p == dir then return none else up p (fuel - 1)
+    | none => return none
+  match file.parent with
+  | some d => up d 64
+  | none => return none
+
 /-- Generate registry files from the current environment.
-    Writes `declarations.json` and `meta.json` to the given output directory. -/
+    Writes `declarations.json` and `meta.json` to the given output directory.
+    A relative directory is resolved against the module's own package root,
+    not the working directory: when Lake builds this package as a
+    dependency of another, the working directory is the other package's,
+    and the registry must still land in this one. -/
 def generateRegistryFiles (outputDir : String) : CommandElabM Unit := do
   let env ← getEnv
+  let root? ← packageRootOf (← getFileName)
+  let outputDir := if outputDir.length > 1 && outputDir.endsWith "/" then (outputDir.take (outputDir.length - 1)).toString else outputDir
+  let outputDir := if (System.FilePath.mk outputDir).isAbsolute then outputDir else
+    match root? with
+    | some r => (r / outputDir).toString
+    | none => outputDir
+  let toolchainPath := match root? with
+    | some r => r / "lean-toolchain"
+    | none => "lean-toolchain"
   let toolchain ← try
-      pure (some (← IO.FS.readFile "lean-toolchain").trimAscii.toString)
+      pure (some (← IO.FS.readFile toolchainPath).trimAscii.toString)
     catch _ => pure none
   let project := if env.mainModule == .anonymous then "registry"
     else env.mainModule.toString

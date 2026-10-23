@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end test of `ca pack` / `ca check` (docs/payload.md, registry-protocol.md §12).
 #
-# Builds the fixture project (Init + CA only), packs it three ways, checks
+# Builds the example project `examples/publish` (Init + CA only), packs it three ways, checks
 # each node file, then tampers with a copy three ways and requires
 # `ca check` to report each as a fault. Run from anywhere, after
 # `lake build` in cli/.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 ca="$here/../.lake/build/bin/ca"
-cd "$here/fixture"
+cd "$here/../../examples/publish"
 lake build >/dev/null
 fail=0
 ok()  { echo "  ok   $1"; }
@@ -19,7 +19,7 @@ if git diff --quiet -- registry && [ -z "$(git ls-files --others --exclude-stand
 
 for mode in "" --own --no-proofs "--own --deps"; do
   out="node${mode// /}.sqlite"
-  lake env "$ca" pack -m Fixture $mode -o "$out" >/dev/null 2>&1 || { bad "pack $mode"; continue; }
+  lake env "$ca" pack -m Publish $mode -o "$out" >/dev/null 2>&1 || { bad "pack $mode"; continue; }
   if lake env "$ca" check "$out" >/dev/null 2>&1; then ok "pack ${mode:-(entries)} + check: no faults"; else bad "check $mode"; fi
   # The independent Python checker (written from the documents) must agree.
   if python3 -I "$here/../../tools/registry_ref.py" "$out" >/dev/null 2>&1; then ok "  and tools/registry_ref.py agrees"; else bad "registry_ref.py $mode"; fi
@@ -53,7 +53,7 @@ tamper "replaced ref id" '
 c.execute("UPDATE refs SET ref = ? WHERE ix = 0", (b"\x11" * 32,))'
 
 # Merge of the three packs, digests, diff.
-for mode in "" --own --no-proofs; do lake env "$ca" pack -m Fixture $mode -o "m${mode}.sqlite" >/dev/null 2>&1; done
+for mode in "" --own --no-proofs; do lake env "$ca" pack -m Publish $mode -o "m${mode}.sqlite" >/dev/null 2>&1; done
 out=$("$ca" merge merged.sqlite m.sqlite m--own.sqlite m--no-proofs.sqlite 2>&1) && echo "$out" | grep -q 'checked, no faults' \
   && ok "ca merge of three packs: checked, no faults" || { bad "ca merge"; echo "$out"; }
 python3 -I "$here/../../tools/registry_ref.py" merged.sqlite >/dev/null 2>&1 && ok "  and registry_ref.py accepts the merged file" || bad "registry_ref.py merged"
@@ -68,7 +68,7 @@ rm -f m*.sqlite merged.sqlite again.sqlite
 
 # `ca verify`: every declaration rebuilt and accepted by the kernel; records
 # written into the file; both checkers still accept the file.
-lake env "$ca" pack -m Fixture --own -o verify.sqlite >/dev/null 2>&1
+lake env "$ca" pack -m Publish --own -o verify.sqlite >/dev/null 2>&1
 out=$(lake env "$ca" verify verify.sqlite --write 2>&1) && echo "$out" | grep -q '13 records: 13 valid' && echo "$out" | grep -q 'no faults' \
   && ok "ca verify: 50 declarations accepted by the kernel, 13 valid records written" || { bad "ca verify"; echo "$out"; }
 lake env "$ca" check verify.sqlite >/dev/null 2>&1 && ok "ca check accepts the file with records" || bad "ca check with records"
@@ -88,7 +88,7 @@ rm -f verify.sqlite
 # Keys: a signed pack (namespace claim + bindings) and signed records.
 rm -f test.key
 pk=$("$ca" keygen test.key 2>/dev/null) && [ -n "$pk" ] && ok "ca keygen writes a key and prints the public key" || bad "ca keygen"
-lake env "$ca" pack -m Fixture --own --sign test.key --label fixture -o signed.sqlite >/dev/null 2>&1 || bad "pack --sign"
+lake env "$ca" pack -m Publish --own --sign test.key --label publish -o signed.sqlite >/dev/null 2>&1 || bad "pack --sign"
 lake env "$ca" verify signed.sqlite --write --sign test.key >/dev/null 2>&1 || bad "verify --sign"
 out=$(lake env "$ca" check signed.sqlite 2>&1) && ok "ca check: signed claim, 13 bindings and 13 signed records verify" || { bad "ca check signed"; echo "$out"; }
 out=$(python3 -I "$here/../../tools/registry_ref.py" signed.sqlite 2>&1) && echo "$out" | grep -q 'bindings: 13' && echo "$out" | grep -q '13 signed' \
@@ -105,7 +105,7 @@ if python3 -I "$here/../../tools/registry_ref.py" signed.sqlite >/dev/null 2>&1;
 rm -f signed.sqlite test.key
 
 # `ca lookup` over a sources list naming the folder and a node file.
-lake env "$ca" pack -m Fixture --own -o node.sqlite >/dev/null 2>&1
+lake env "$ca" pack -m Publish --own -o node.sqlite >/dev/null 2>&1
 cat > sources.json <<'EOF'
 { "sources": [
   { "name": "fixture-folder", "kind": "folder", "location": "registry" },

@@ -1,3 +1,4 @@
 .lake/
 *.sqlite
 sources.json
+*.key

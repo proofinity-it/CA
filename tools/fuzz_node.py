@@ -1,6 +1,6 @@
 """Fuzz the node-file checkers (docs/plan.md item 4).
 
-Packs the CLI's fixture project, then mutates copies of the node file:
+Packs the example project `examples/publish`, then mutates copies of the node file:
 random bytes flipped in units and decorations, rows re-pointed, ids
 replaced, tables emptied. Every mutation must leave `ca check` and
 `registry_ref.py` with a clean exit status of 0 (the mutation changed
@@ -31,11 +31,11 @@ def run(cmd, cwd=None):
     return r.returncode, r.stdout + r.stderr
 
 def pack(ca: Path, work: Path) -> Path:
-    fixture = HERE.parent / "cli" / "tests" / "fixture"
+    fixture = HERE.parent / "examples" / "publish"
     rc, out = run(["lake", "build"], cwd=fixture)
     if rc != 0: sys.exit(f"fixture build failed:\n{out}")
     node = work / "node.sqlite"
-    rc, out = run(["lake", "env", str(ca.resolve()), "pack", "-m", "Fixture", "--own", "-o", str(node)], cwd=fixture)
+    rc, out = run(["lake", "env", str(ca.resolve()), "pack", "-m", "Publish", "--own", "-o", str(node)], cwd=fixture)
     if rc != 0: sys.exit(f"pack failed:\n{out}")
     return node
 

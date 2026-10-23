@@ -12,7 +12,7 @@ import CA
 @[open_point, publish "both"] def Both : Prop := ∀ n : Nat, n = n
 @[publish] def notAProp : Nat := 3
 @[publish] axiom ax : (1 : Nat) = 1
--- Not annotated, but in the module: packed by `ca pack --own`.
+-- Not annotated, but in the module: packed by `ca pack --own`, absent from registry/.
 inductive Color where | red | green
 def Color.swap : Color → Color | .red => .green | .green => .red
 theorem twice (n : Nat) : n + n = 2 * n := by omega

@@ -23,7 +23,8 @@ jobs:
             .lake
             nodefile/.lake
             cli/.lake
-            cli/tests/fixture/.lake
+            examples/publish/.lake
+            examples/consume/.lake
           key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'nodefile/lake-manifest.json', 'cli/lake-manifest.json') }}
       - name: Build the library
         run: lake build
@@ -66,7 +67,8 @@ jobs:
             .lake
             nodefile/.lake
             cli/.lake
-            cli/tests/fixture/.lake
+            examples/publish/.lake
+            examples/consume/.lake
           key: lake-cli-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'nodefile/lake-manifest.json', 'cli/lake-manifest.json') }}
       - name: Build the CLI
         run: cd cli && lake build
@@ -76,3 +78,5 @@ jobs:
           bash cli/tests/node-test.sh
       - name: Fuzz the checkers
         run: python3 -I tools/fuzz_node.py --ca cli/.lake/build/bin/ca --rounds 300
+      - name: Examples walkthrough
+        run: bash examples/walkthrough.sh

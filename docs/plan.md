@@ -151,7 +151,9 @@ toolchains) is still to run; see item 4.
 | `payload.md` §8: drop "naming variants in the protocol", which §6 of the protocol settled | done in the same change as this plan |
 | `docs/building.md` and the README building row say three packages | done in the same change as this plan |
 
-Status: **done** (2026-10-23). `cli/tests/fixture/` is the example: its
-`registry/` is committed and `node-test.sh` fails if a rebuild changes it.
+Status: **done** (2026-10-23). `examples/publish/` (the former CLI fixture)
+and `examples/consume/` are the examples, with `examples/walkthrough.sh`
+run by CI; `publish`'s `registry/` is committed and `node-test.sh` fails
+if a rebuild changes it.
 A node file is not committed: SQLite output is not byte-deterministic, so
 it would churn on every build; `ca pack` on the fixture takes a second.

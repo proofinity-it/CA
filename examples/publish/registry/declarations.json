@@ -6,7 +6,7 @@
   "ref": "9XAvcFetep9zzjVQa1V6cHDrDGMrFE1XMe348Kh175HU",
   "pp_type": "∀ (n : Nat), n = n",
   "name": "Both",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "definition",
   "description": "both"},
  {"type_hash":
@@ -25,7 +25,7 @@
   "proved_by": ["conj_literal", "conj_proof"],
   "pp_type": "∀ (n : Nat), n + 0 = n",
   "name": "Conj",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "definition",
   "description": "proved below"},
  {"type_hash":
@@ -43,7 +43,7 @@
   "ref": "Bwn2A4DRVqzxAahvs5tDC2WAMpXh4bN4Dhfxn21Z3eHm",
   "pp_type": "∀ (n : Nat), n * 1 = n",
   "name": "Open1",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "definition",
   "description": "nobody proves this here"},
  {"type_hash":
@@ -54,7 +54,7 @@
   "ref": "4cPkp8Av3xRLwh2pfhV4zNn448nN6f4wxx1NWbi5jE7c",
   "pp_type": "Open1 ∧ True",
   "name": "Wrap",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "definition"},
  {"type_hash":
   "0cb83ee19bb0020db961d234bf7494b3fd3042bff72ab88551fa48f3d681c386",
@@ -64,7 +64,7 @@
   "ref": "B39zsD8X5R8K4kwrXxVSvz8MPf2QgSpA698iEyw9yjeb",
   "pp_type": "Open1 ∨ True",
   "name": "about",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "330cbb1ce948c12a66daec82d27bddf3704dbfbc802f35229edcc1ecb6ac769a",
@@ -74,7 +74,7 @@
   "ref": "ELaNXj1qD5iYPXfXF11Eps6LaJzdhK25YbRomYnsZ8gv",
   "pp_type": "1 = 1",
   "name": "ax",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "axiom"},
  {"type_hash":
   "5acc508e1849f11d7f788d761789c29e622855b06e533f8a93ffaa470705de12",
@@ -93,7 +93,7 @@
   "ref": "7B8gYezVDEndvrLXJ8EmWXFMJYS7iLFVi7vUoysCYw4H",
   "pp_type": "Open1 → 2 * 1 = 2",
   "name": "cond1",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "d73f3967fc94d334681986a8fd4e9e327ed9eab8a5890cc007a0e804f0243ad8",
@@ -111,7 +111,7 @@
   "proves": ["Conj"],
   "pp_type": "∀ (n : Nat), n + 0 = n",
   "name": "conj_literal",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "5b27150a4e061f2ca686d44628e8e1bbd7e029a0871fb1ca45c669878893e975",
@@ -122,7 +122,7 @@
   "proves": ["Conj"],
   "pp_type": "Conj",
   "name": "conj_proof",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "e9a0b52bd53bd54eabb8245e6a73aa47fdc4e7b1bf7611623771f80ea68bf5e6",
@@ -132,7 +132,7 @@
   "ref": "5XSBzAMiY4wnNUqUB1DdCuvBLVS2RNh41VEYozFuqCaH",
   "pp_type": "Nat",
   "name": "notAProp",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "definition"},
  {"type_hash":
   "aab41bf7156b7a7abace36dc6afce1ec654236b2f56f502e41bd14f0dba4cfd9",
@@ -142,7 +142,7 @@
   "ref": "4VGpHf3SvKGMRdFoJBJiiuuiaAY8kFMqCBdwT9hyFedh",
   "pp_type": "¬(Open1 ∧ False)",
   "name": "refut_shape",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "f780ea42b04a74f4c9b23300724f1c1b5c8239d9c5f6a5fab9f15fc98ec94304",
@@ -161,7 +161,7 @@
   "ref": "6BtXDB9AQ9Hp75uSQBNosk8RVnbs6xFXiechMgUhgfU2",
   "pp_type": "Conj → 1 + 0 = 1",
   "name": "uses_conj",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
   "574ea3a33fa1f828b20a58c3cd0ce22e276bd41f5896ab9229325527fd160995",
@@ -180,5 +180,5 @@
   "ref": "3UhyWYWHd6EXZuE3UtFFZexGFKpyTK48udpejc4BWnmb",
   "pp_type": "Wrap → 2 * 1 = 2",
   "name": "uses_wrap",
-  "module": "Fixture",
+  "module": "Publish",
   "kind": "theorem"}]
