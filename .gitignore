@@ -1,0 +1,7 @@
+/.lake
+/cli/.lake
+/nodefile/.lake
+result
+.vscode/
+tmp/
+__pycache__/

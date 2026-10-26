@@ -1,0 +1,18 @@
+{"statements": 13,
+ "published": 10,
+ "proved": 5,
+ "project": "Publish",
+ "payload_format": 1,
+ "open_points_proved": 1,
+ "open_points": 3,
+ "lean_toolchain": "leanprover/lean4:v4.35.0",
+ "entries": 13,
+ "definitions": 2,
+ "conditional": 2,
+ "ca_scheme_version": 1,
+ "ca_key_tiers":
+ {"exact": "stmt (RefHash statement id, base58); ref = what dependents embed",
+  "coarse": "type_hash (name-based L0 SHA-256, hex)"},
+ "ca_hash_mode": "name-based",
+ "ca_hash_level": "L0",
+ "axioms": 1}

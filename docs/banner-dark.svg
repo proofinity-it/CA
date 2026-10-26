@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="296" viewBox="0 0 1200 296" role="img" aria-label="CA: one theorem, four objects. Its name is found by asking a namespace and survives until renamed; its statement is found by computing it from the proposition and survives renames, moves and re-proving; its Lean proof is found in a repository; its proof term is a cache found by asking the network for witnesses.">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6e7681"/></marker></defs>
+<text x="20.0" y="34" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#9198a1" letter-spacing="0.8">ONE THEOREM, FOUR OBJECTS — HOW EACH IS FOUND, AND WHAT IT SURVIVES</text>
+<text x="1180.0" y="34" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" font-weight="600" fill="#e6edf3">CA</text>
+<rect x="20.0" y="64" width="190" height="104" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.4"/>
+<text x="115.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1" letter-spacing="0.8">NAME</text>
+<text x="115.0" y="120" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" fill="#e6edf3">Nat.add_zero</text>
+<text x="115.0" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13.5" fill="#9198a1">a binding in a namespace</text>
+<text x="115.0" y="204" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">found by</tspan><tspan dx="6">its namespace</tspan></text>
+<text x="115.0" y="228" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">survives</tspan><tspan dx="6">until renamed</tspan></text>
+<rect x="300.0" y="64" width="300" height="104" rx="10" fill="#161b22" stroke="#4493f8" stroke-width="2.4"/>
+<text x="450.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1" letter-spacing="0.8">STATEMENT</text>
+<text x="450.0" y="120" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" fill="#e6edf3">∀ n : Nat, n + 0 = n</text>
+<text x="450.0" y="150" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#4493f8">stmt ByKFv4nqHrcs…</text>
+<text x="450.0" y="204" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">found by</tspan><tspan dx="6">computing it from the proposition</tspan></text>
+<text x="450.0" y="228" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">survives</tspan><tspan dx="6">renames, moves, re-proving</tspan></text>
+<rect x="690.0" y="64" width="190" height="104" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.4"/>
+<text x="785.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1" letter-spacing="0.8">LEAN PROOF</text>
+<text x="785.0" y="120" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" fill="#e6edf3">:= rfl</text>
+<text x="785.0" y="150" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13.5" fill="#9198a1">Init/Core.lean:747</text>
+<text x="785.0" y="204" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">found by</tspan><tspan dx="6">the repository holding it</tspan></text>
+<text x="785.0" y="228" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">survives</tspan><tspan dx="6">nothing beyond its text</tspan></text>
+<rect x="970.0" y="64" width="210" height="104" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.4"/>
+<text x="1075.0" y="88" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1" letter-spacing="0.8">PROOF TERM</text>
+<text x="1075.0" y="120" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" fill="#e6edf3">fun n => rfl</text>
+<text x="1075.0" y="150" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5" fill="#4493f8">decl CRBaL3yvth9g…</text>
+<text x="1075.0" y="204" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">found by</tspan><tspan dx="6">asking the network</tspan></text>
+<text x="1075.0" y="228" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e6edf3"><tspan fill="#9198a1">survives</tspan><tspan dx="6">renames only</tspan></text>
+<line x1="214.0" y1="116.0" x2="296.0" y2="116.0" stroke="#6e7681" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="255.0" y="107.0" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1">names</text>
+<line x1="686.0" y1="116.0" x2="604.0" y2="116.0" stroke="#6e7681" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="645.0" y="107.0" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1">proves</text>
+<line x1="884.0" y1="116.0" x2="966.0" y2="116.0" stroke="#6e7681" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="925.0" y="107.0" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#9198a1">elaborates to</text>
+<text x="600.0" y="276" text-anchor="middle" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14.5" fill="#9198a1">cite the statement: anyone can compute it, and nothing a proof does can change it · proofs are interchangeable witnesses · terms are caches</text>
+</svg>
