@@ -46,6 +46,13 @@ asks every one of them about a statement id, a coarse hash or a name,
 proof a source binds to that statement, checked against the current
 environment ([`docs/usage.md`](docs/usage.md)).
 
+A second implementation is coming: **canode**, a live node that keeps
+declarations in Redis under these ids, exports and imports the same node
+files (every id recomputed and compared with its store; files checked
+with CA's own checker), and re-checks one declaration against the part
+of its cone a reader does not already accept, writing signed records in
+this format. It is not yet public.
+
 Two documents propose the specifications this needs. [`docs/spec.md`](docs/spec.md)
 is normative for the ids: the bytes of `stmt`, `decl` and `ref` under
 scheme 1, with test vectors and an independent reimplementation.
