@@ -119,6 +119,98 @@ Rules that follow from the "stable under" column:
 - `decl` of a theorem and `.olean` are caches and verification keys, not
   identities a user should cite.
 
+## The name-based hash: cost, and the planned rework
+
+*Measured 2026-10-29; the rework is a plan, not yet implemented.*
+
+`type_hash` (`CA.ExprHash`, the CLI's `ca address`) and `stmt` hash the
+same L0 form, but not the same way. `stmt` is Merkle-style with a memo
+on structurally equal subterms (above), so its cost is the size of the
+statement's **DAG**. `type_hash` serialises the whole statement into one
+byte array (`serializeExpr`, a pre-order walk with no memo) and hashes
+that, so its cost, in time and memory, is the size of the statement's
+**tree**. Elaborated statements are DAGs whose trees can be
+exponentially larger: instance arguments, implicit types and coercions
+repeat the same subterm at every level.
+
+On the Lean Pool corpus (318 projects, toolchain `v4.35.0-rc3`), `ca
+pack` (`stmt`) took 10 to 40 s per project, these four included; `ca address` (`type_hash`)
+blew up on four of them (ConnesRigidity, JacobianDiffgeo, LiebThirring,
+Malliavin), past an 8 GB cap each. ConnesRigidity reached 37.7 GB for
+1,899 declarations before the kernel killed it: at least twelve of its
+statements have about 1,000 distinct subterms and more than 10⁸ nodes as
+trees. Mathlib itself passes, but `ca address` on its own 372k
+declarations (`v4.35.0`) peaks at 18.5 GB against 10.3 GB for `ca pack`
+on all of Mathlib. L1 has the same weakness, worse: `deepNormalize`
+walks the tree with no memo, and opens and re-closes every binder
+(`withLocalDecl`, `mkForallFVars`), so the body under each binder is
+traversed again.
+
+This is not a defect of content addressing but of one implementation
+of it, and the literature names both halves. Maziarz, Ellis, Lawrence,
+Fitzgibbon and Peyton Jones, *Hashing Modulo Alpha-Equivalence* (PLDI
+2021), solve a harder problem than ours (α-equivalence classes of
+*every* subexpression, open ones included, for CSE) and make three
+remarks that apply here:
+
+- **De Bruijn is right for a closed root, wrong for open fragments**
+  (their §2.4): de Bruijn hashes of open subterms give false negatives
+  and false positives, while being "great for structure sharing". CA
+  already draws that line: subterm ids are memo keys, only the closed
+  root is an address (above).
+- **Merkle hashing with a memo is the standard answer for syntactic
+  identity** (their §2.3: hash a node from its constructor and its
+  children's hashes, "we simply memoise the node constructor
+  functions"). On a closed de Bruijn term that is exactly identity
+  modulo α, in time linear in the DAG. `stmt` does this; `type_hash`
+  does not.
+- **Locally nameless costs a re-hash under each binder** (their §2.5),
+  the pattern L1 pays today by opening every binder.
+
+Their weak (XOR) combiner is needed only for free-variable maps, which
+a closed root does not have; with SHA-256 at every node and an
+injective encoding (domain tag, kind tag, fixed-size child digests,
+length-prefixed names), collision resistance reduces to SHA-256's, as
+for any hash tree. Their correctness argument is CA's too, in two steps:
+a canonical form that loses nothing but what the equivalence erases
+(their e-summary, our L0 expression), then an ordinary hash, the only
+step that can collide.
+
+**The rework.**
+
+1. **One engine, two leaf policies.** `type_hash` becomes the Merkle
+   hash of the same L0 form with the same flat/Merkle split and memo as
+   `⟦·⟧`, a `.const` leaf encoding its **name** (length-prefixed
+   components) instead of its `ref`, under its own domain tag so the
+   two can never coincide. Cost becomes the DAG's, as for `stmt`.
+2. **One pass.** `ca pack` emits `type_hash` for every declaration it
+   packs, not only for `@[publish]` entries, from the same traversal
+   that computes `stmt`: no second environment load and no separate
+   `ca address` run, which is the one that needed 18.5 GB on Mathlib.
+3. **L1 on the same engine.** `deepNormalize` gets a memo on
+   structurally equal subterms; the L1 id is then the Merkle hash of the
+   normalised form.
+4. **A version for the name-based hash.** Its values change, so
+   `meta.json` records a `type_hash` scheme next to
+   `ca_scheme_version`, and the two are never compared across schemes.
+   `stmt`, `decl` and `ref` do not change: scheme 1 stands.
+
+What it buys: every id CA computes costs the size of the DAG, so no
+statement can take a machine down; `type_hash`, the only id that
+crosses toolchain releases, becomes cheap enough to emit everywhere,
+which is what comparing corpora at different toolchains needs.
+
+What it does not change: what each id identifies. Argument order and
+binder info stay part of every id (the table above). A coarser layer,
+up to the order of independent hypotheses, is the next question; the
+rule for it is the two-step one above — a canonical order (a
+topological sort of the binder telescope with position-free tie-breaks)
+and a bridge the kernel checks (the permutation, as a term each way),
+never a lossy hash taken on trust. Maziarz et al. name this level
+(their "graph equivalence", reordering independent `let`s) and leave it
+out of scope; for binder telescopes it needs canonical ordering, not
+their machinery.
+
 ## Blocks
 
 Mutual definitions and inductive families are cyclic. Each strongly
