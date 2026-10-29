@@ -137,74 +137,6 @@ def metaKey : String := s!"{keyPrefix}:meta"
 def allKey : String := s!"{keyPrefix}:all"
 def kindKey (kind : String) : String := s!"{keyPrefix}:kind:{kind}"
 
--- Base64 Encoding/Decoding
-
-private def base64Table : Array Char :=
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toList.toArray
-
-def base64Encode (data : ByteArray) : String := Id.run do
-  let tbl := base64Table
-  let n := data.size
-  let mut result : Array Char := #[]
-  let mut i := 0
-  while i + 2 < n do
-    let b0 := data[i]!.toNat
-    let b1 := data[i+1]!.toNat
-    let b2 := data[i+2]!.toNat
-    result := result.push tbl[b0 >>> 2]!
-    result := result.push tbl[((b0 &&& 3) <<< 4) ||| (b1 >>> 4)]!
-    result := result.push tbl[((b1 &&& 15) <<< 2) ||| (b2 >>> 6)]!
-    result := result.push tbl[b2 &&& 63]!
-    i := i + 3
-  let rem := n - i
-  if rem == 1 then
-    let b0 := data[i]!.toNat
-    result := result.push tbl[b0 >>> 2]!
-    result := result.push tbl[(b0 &&& 3) <<< 4]!
-    result := result.push '='
-    result := result.push '='
-  else if rem == 2 then
-    let b0 := data[i]!.toNat
-    let b1 := data[i+1]!.toNat
-    result := result.push tbl[b0 >>> 2]!
-    result := result.push tbl[((b0 &&& 3) <<< 4) ||| (b1 >>> 4)]!
-    result := result.push tbl[(b1 &&& 15) <<< 2]!
-    result := result.push '='
-  return String.ofList result.toList
-
-private def base64DecodeChar (c : Char) : Nat :=
-  if 'A' ≤ c && c ≤ 'Z' then c.toNat - 'A'.toNat
-  else if 'a' ≤ c && c ≤ 'z' then c.toNat - 'a'.toNat + 26
-  else if '0' ≤ c && c ≤ '9' then c.toNat - '0'.toNat + 52
-  else if c == '+' then 62
-  else if c == '/' then 63
-  else 0
-
-def base64Decode (s : String) : ByteArray := Id.run do
-  let chars := s.toList.filter (· != '=')
-  let n := chars.length
-  let mut result : ByteArray := .empty
-  let arr := chars.toArray
-  let mut i := 0
-  while i + 3 < n do
-    let a := base64DecodeChar arr[i]!
-    let b := base64DecodeChar arr[i+1]!
-    let c := base64DecodeChar arr[i+2]!
-    let d := base64DecodeChar arr[i+3]!
-    result := result.push ((a <<< 2 ||| b >>> 4) % 256).toUInt8
-    result := result.push (((b &&& 15) <<< 4 ||| c >>> 2) % 256).toUInt8
-    result := result.push (((c &&& 3) <<< 6 ||| d) % 256).toUInt8
-    i := i + 4
-  let rem := n - i
-  if rem >= 2 then
-    let a := base64DecodeChar arr[i]!
-    let b := base64DecodeChar arr[i+1]!
-    result := result.push ((a <<< 2 ||| b >>> 4) % 256).toUInt8
-    if rem >= 3 then
-      let c := base64DecodeChar arr[i+2]!
-      result := result.push (((b &&& 15) <<< 4 ||| c >>> 2) % 256).toUInt8
-  return result
-
 -- Redis address operations
 
 structure AddrEntry where
@@ -212,7 +144,6 @@ structure AddrEntry where
   module    : String
   kind      : String
   ppType    : String
-  typeBytes : ByteArray
 
 def storeDecl (name kind ppType : String) : RedisM Unit := do
   let key := declKey name
@@ -232,14 +163,13 @@ def storeAddress (name : String) (typeHash : String)
   discard $ hset key "addr_type_deps" (String.intercalate "," typeDeps.toList)
   discard $ hset key "addr_value_deps" (String.intercalate "," valueDeps.toList)
 
-def storeAddrIndex (name : String) (typeHash : String) (module kind ppType : String)
-    (typeBytes : ByteArray) : RedisM Unit := do
+def storeAddrIndex (name : String) (typeHash : String) (module kind ppType : String) :
+    RedisM Unit := do
   let ak := addrKey typeHash
   discard $ hset ak "name" name
   discard $ hset ak "module" module
   discard $ hset ak "kind" kind
   discard $ hset ak "pp_type" ppType
-  discard $ hset ak "type_bytes" (base64Encode typeBytes)
   discard $ set (name2addrKey name) typeHash
   discard $ sadd (addrNamesKey typeHash) name
 
@@ -251,9 +181,7 @@ def lookupByAddr (hex : String) : RedisM (Option AddrEntry) := do
   let module := String.fromUTF8! (← hget ak "module")
   let kind := String.fromUTF8! (← hget ak "kind")
   let ppType := String.fromUTF8! (← hget ak "pp_type")
-  let tbStr := String.fromUTF8! (← hget ak "type_bytes")
-  let typeBytes := base64Decode tbStr
-  return some { name, module, kind, ppType, typeBytes }
+  return some { name, module, kind, ppType }
 
 def lookupByName (name : String) : RedisM (Option AddrEntry) := do
   let hexBytes ← get (name2addrKey name)
@@ -303,7 +231,7 @@ def runFetchCmd (p : Cli.Parsed) : IO UInt32 := do
       let typeDeps := dh.typeDeps.map (·.toString)
       let valueDeps := dh.valueDeps.map (·.toString)
       storeAddress nameStr dh.typeHash dh.valueHash typeDeps valueDeps
-      storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType dh.typeBytes
+      storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType
       count := count + 1
       if count % 1000 == 0 then
         IO.eprintln s!"Progress: {count} declarations stored..."
@@ -322,7 +250,7 @@ def runFetchCmd (p : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def fetchCmd : Cli.Cmd := `[Cli|
-  fetch VIA runFetchCmd; ["0.3.1"]
+  fetch VIA runFetchCmd; ["0.4.0"]
   "Load Mathlib environment, compute content addresses, and store everything in Redis."
 
   FLAGS:
@@ -401,7 +329,7 @@ def runAddressCmd (p : Cli.Parsed) : IO UInt32 := do
         let result ← withRedis do
           storeAddress nameStr dh.typeHash dh.valueHash
             (dh.typeDeps.map (·.toString)) (dh.valueDeps.map (·.toString))
-          storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType dh.typeBytes
+          storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType
         match result with
         | .ok _ => pure ()
         | .error e => IO.eprintln s!"Redis error: {e}"
@@ -434,7 +362,7 @@ def runAddressCmd (p : Cli.Parsed) : IO UInt32 := do
       let typeDeps := dh.typeDeps.map (·.toString)
       let valueDeps := dh.valueDeps.map (·.toString)
       storeAddress nameStr dh.typeHash dh.valueHash typeDeps valueDeps
-      storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType dh.typeBytes
+      storeAddrIndex nameStr dh.typeHash dh.module.toString dh.kind dh.ppType
   match result with
   | .ok _ => IO.eprintln s!"Stored addresses for {hashes.size} declarations in Redis"
   | .error e => IO.eprintln s!"Redis error: {e}"
@@ -442,7 +370,7 @@ def runAddressCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def addressCmd : Cli.Cmd := `[Cli|
-  address VIA runAddressCmd; ["0.3.1"]
+  address VIA runAddressCmd; ["0.4.0"]
   "Compute content addresses for all declarations and export manifest."
 
   FLAGS:
@@ -481,7 +409,7 @@ def runRegistryCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def registryCmd : Cli.Cmd := `[Cli|
-  registry VIA runRegistryCmd; ["0.3.1"]
+  registry VIA runRegistryCmd; ["0.4.0"]
   "Generate a project registry from @[publish] and @[open_point] annotations."
 
   FLAGS:
@@ -532,6 +460,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
     catch _ => pure none
   let info := #[("payload_format", toString CA.Payload.formatVersion.toNat),
                 ("ca_scheme_version", toString CA.schemeVersion),
+                ("type_hash_scheme", toString CA.RefHash.typeHashScheme),
                 ("node", "static"), ("project", moduleName.toString),
                 ("proofs", if withProofs then "yes" else "no"),
                 ("lean_toolchain", toolchain.getD Lean.versionString)]
@@ -557,7 +486,7 @@ def runPackCmd (p : Cli.Parsed) : IO UInt32 := do
   return if rep.errors.isEmpty then 0 else 1
 
 def packCmd : Cli.Cmd := `[Cli|
-  pack VIA runPackCmd; ["0.3.1"]
+  pack VIA runPackCmd; ["0.4.0"]
   "Write a registry node file (SQLite, docs/payload.md): units, decorations, statements."
 
   FLAGS:
@@ -591,7 +520,7 @@ def runCheckCmd (p : Cli.Parsed) : IO UInt32 := do
   return 1
 
 def checkCmd : Cli.Cmd := `[Cli|
-  check VIA runCheckCmd; ["0.3.1"]
+  check VIA runCheckCmd; ["0.4.0"]
   "Check a node file: every unit's ids recomputed from its bytes, every row against its unit, every decoration rebuilt."
 
   ARGS:
@@ -619,7 +548,7 @@ def runMergeCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def mergeCmd : Cli.Cmd := `[Cli|
-  merge VIA runMergeCmd; ["0.3.1"]
+  merge VIA runMergeCmd; ["0.4.0"]
   "Union of node files into one, re-encoded against one ref table and checked (ids unchanged; bindings: highest seq wins)."
 
   ARGS:
@@ -638,7 +567,7 @@ def runDigestCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def digestCmd : Cli.Cmd := `[Cli|
-  digest VIA runDigestCmd; ["0.3.1"]
+  digest VIA runDigestCmd; ["0.4.0"]
   "Range digests of a node's content keys: one SHA-256 per id-prefix bucket, for reconciliation."
 
   FLAGS:
@@ -665,7 +594,7 @@ def runDiffCmd (p : Cli.Parsed) : IO UInt32 := do
   return if onlyA.isEmpty && onlyB.isEmpty then 0 else 2
 
 def diffCmd : Cli.Cmd := `[Cli|
-  diff VIA runDiffCmd; ["0.3.1"]
+  diff VIA runDiffCmd; ["0.4.0"]
   "What two node files hold that the other lacks, found through range digests. Exit 2 when they differ."
 
   FLAGS:
@@ -707,8 +636,12 @@ def runMigrateCmd (p : Cli.Parsed) : IO UInt32 := do
       if d.stmt == e.stmt then thmSameStmt := thmSameStmt + 1
   let onlyA := da.size - common
   let onlyB := db.size - common
-  -- Entries: pair by type_hash (coarse), confirm by stmt (exact).
+  -- Entries: pair by type_hash (coarse), confirm by stmt (exact); only
+  -- between nodes of one type_hash scheme (absent means 1).
+  let ths (n : CA.Node.Node) := (n.info.find? (·.1 == "type_hash_scheme")).map (·.2) |>.getD "1"
+  let sameScheme := ths na == ths nb
   let eb : Std.HashMap String (Array CA.Node.EntryRow) :=
+    if !sameScheme then {} else
     nb.entries.foldl (fun m e => m.insert e.typeHash ((m.getD e.typeHash #[]).push e)) {}
   let mut survived := 0; let mut moved : Array (Name × Array Name) := #[]; let mut gone : Array Name := #[]
   for e in na.entries do
@@ -722,14 +655,17 @@ def runMigrateCmd (p : Cli.Parsed) : IO UInt32 := do
   IO.println s!"  declarations by name: {common} in both, {onlyA} only in the first, {onlyB} only in the second"
   IO.println s!"    stmt unchanged: {sameStmt} ({pct sameStmt common}); theorems: {thmSameStmt}/{thm} ({pct thmSameStmt thm})"
   IO.println s!"    ref unchanged:  {sameRef} ({pct sameRef common});  decl unchanged: {sameDecl} ({pct sameDecl common})"
-  IO.println s!"  entries by type_hash: {survived} survived (same stmt), {moved.size} coarse matches whose stmt changed (candidates to confirm), {gone.size} with no coarse match"
+  if sameScheme then
+    IO.println s!"  entries by type_hash: {survived} survived (same stmt), {moved.size} coarse matches whose stmt changed (candidates to confirm), {gone.size} with no coarse match"
+  else
+    IO.println s!"  entries by type_hash: not compared (type_hash scheme {ths na} vs {ths nb}; repack the older node)"
   for n in changed.toList.take 20 do IO.println s!"    stmt changed: {n}"
   for (n, cs) in moved.toList.take 20 do IO.println s!"    candidate: {n} ~ {cs}"
   for n in gone.toList.take 20 do IO.println s!"    gone: {n}"
   return 0
 
 def migrateCmd : Cli.Cmd := `[Cli|
-  migrate VIA runMigrateCmd; ["0.3.1"]
+  migrate VIA runMigrateCmd; ["0.4.0"]
   "Compare two nodes (two toolchains, two revisions): which statements survived by name, by stmt, by type_hash."
 
   ARGS:
@@ -752,7 +688,7 @@ def runKeygenCmd (p : Cli.Parsed) : IO UInt32 := do
   return 0
 
 def keygenCmd : Cli.Cmd := `[Cli|
-  keygen VIA runKeygenCmd; ["0.3.1"]
+  keygen VIA runKeygenCmd; ["0.4.0"]
   "Generate an Ed25519 key for signing records and bindings; prints the public key."
 
   ARGS:
@@ -797,7 +733,7 @@ def runVerifyCmd (p : Cli.Parsed) : IO UInt32 := do
   return 1
 
 def verifyCmd : Cli.Cmd := `[Cli|
-  verify VIA runVerifyCmd; ["0.3.1"]
+  verify VIA runVerifyCmd; ["0.4.0"]
   "Rebuild every declaration of a node file and let the kernel judge it; one verification record per accepted theorem."
 
   FLAGS:
@@ -865,10 +801,15 @@ def runLookupCmd (p : Cli.Parsed) : IO UInt32 := do
       let info ← CA.NodeFile.metaOf db
       let project := (info.find? (·.1 == "project")).map (·.2) |>.getD "?"
       let toolchain := (info.find? (·.1 == "lean_toolchain")).map (·.2) |>.getD "?"
+      let thScheme := (info.find? (·.1 == "type_hash_scheme")).map (·.2) |>.getD "1"
       -- Entries (registry statements with a status), then declarations.
       let entries ← match q with
         | .stmt b => CA.NodeFile.entriesByStmt db (CA.Base58.decode b).get!
-        | .typeHash h => CA.NodeFile.entriesByTypeHash db h
+        | .typeHash h =>
+          if thScheme == toString CA.RefHash.typeHashScheme then CA.NodeFile.entriesByTypeHash db h
+          else do
+            IO.eprintln s!"  {s.name}: type_hash scheme {thScheme}, not {CA.RefHash.typeHashScheme}; repack it to match coarsely"
+            pure #[]
         | .name nm => CA.NodeFile.entriesByName db nm.toString
       let decls ← match q with
         | .stmt b => CA.NodeFile.declarationsByStmt db (CA.Base58.decode b).get!
@@ -896,7 +837,7 @@ def runLookupCmd (p : Cli.Parsed) : IO UInt32 := do
   return if n > 0 then 0 else 2
 
 def lookupCmd : Cli.Cmd := `[Cli|
-  lookup VIA runLookupCmd; ["0.3.1"]
+  lookup VIA runLookupCmd; ["0.4.0"]
   "Ask every source in sources.json about a statement id (base58), a coarse hash (hex) or a name. Exit 2 when nothing answers."
 
   FLAGS:
@@ -947,7 +888,7 @@ def runFetchSourcesCmd (p : Cli.Parsed) : IO UInt32 := do
   return if failed == 0 then 0 else 1
 
 def fetchSourcesCmd : Cli.Cmd := `[Cli|
-  "fetch-sources" VIA runFetchSourcesCmd; ["0.3.1"]
+  "fetch-sources" VIA runFetchSourcesCmd; ["0.4.0"]
   "Copy the URL sources of sources.json into the local cache."
 
   FLAGS:
@@ -984,14 +925,14 @@ def runSelftestCmd (_ : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def selftestCmd : Cli.Cmd := `[Cli|
-  selftest VIA runSelftestCmd; ["0.3.1"]
+  selftest VIA runSelftestCmd; ["0.4.0"]
   "Check that the OpenSSL SHA-256 agrees with the library's pure implementation."
 ]
 
 -- Top-level CLI
 
 def caCmd : Cli.Cmd := `[Cli|
-  ca NOOP; ["0.3.1"]
+  ca NOOP; ["0.4.0"]
   "Content-addressed declaration hashing for Lean 4 environments."
 
   SUBCOMMANDS:

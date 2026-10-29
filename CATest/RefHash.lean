@@ -254,6 +254,46 @@ def main : IO UInt32 := do
       | some d', some _ => d'.decl == d.decl
       | _, _ => false))
 
+  -- Name-based type_hash (scheme 2): names are the leaves, cost is the DAG's.
+  let th (n : Name) : IO ByteArray := do
+    match env.find? n with
+    | some ci => typeHashOf ci.levelParams ci.type
+    | none => throw (IO.userError s!"missing {n}")
+  fails := fails ++ (← check "type_hash: f, h (same type, by name) are equal"
+    ((← th `f) == (← th `h)))
+  fails := fails ++ (← check "type_hash: uses_f, uses_g differ — names are the leaves (stmt agrees)"
+    ((← th `uses_f) != (← th `uses_g)))
+  fails := fails ++ (← check "type_hash: q1, q3 equal, q1, q2 differ (positional universes)"
+    ((← th `q1) == (← th `q3) && (← th `q1) != (← th `q2)))
+  fails := fails ++ (← check "type_hash: Type (max u v) and Type (max v u) are equal"
+    ((← th `l1) == (← th `l2)))
+  fails := fails ++ (← check "type_hash ≠ stmt of the same declaration (domain separation)"
+    ((← th `t1) != t1'.stmt))
+  -- Names are encoded by component: `a.b` and «a.b» are different leaves.
+  let dotted := mkConst (Name.mkStr .anonymous "a.b")
+  fails := fails ++ (← check "type_hash: `a.b and «a.b» differ (names encoded by component)"
+    ((← typeHashOf [] (mkConst `a.b)) != (← typeHashOf [] dotted)))
+  -- A statement whose tree has 2^64 nodes and whose DAG has 66: `Eq ℕ e e`
+  -- with e₀ = `Nat.zero`, eₖ₊₁ = `Nat.add eₖ eₖ`. Scheme 1 would expand
+  -- the tree; scheme 2 must finish at once.
+  let deep := (List.range 64).foldl (fun e _ => mkApp2 (mkConst ``Nat.add) e e) (mkConst ``Nat.zero)
+  let tD0 ← IO.monoMsNow
+  let hDeep ← typeHashOf [] (mkApp3 (mkConst ``Eq [levelOne]) (mkConst ``Nat) deep deep)
+  let tD1 ← IO.monoMsNow
+  fails := fails ++ (← check s!"type_hash of a 2^64-node tree (66-node DAG) in {tD1 - tD0} ms"
+    (tD1 - tD0 < 2000 && hDeep.size == 32))
+  -- A batch with one shared memo gives what single calls give.
+  let batch ← typeHashes ours
+  let singles ← ours.mapM fun (n, ci) => do return (n, ← typeHashOf ci.levelParams ci.type)
+  fails := fails ++ (← check "typeHashes (shared memo) = typeHashOf one by one"
+    (batch.size == singles.size && (batch.zip singles).all fun ((a, x), (b, y)) => a == b && x == y))
+  -- Golden: built from bare constants, so no elaboration and no toolchain
+  -- enters. Update only together with a `typeHashScheme` bump.
+  let goldenTH := CA.SHA256.toHex256 hDeep
+  let wantTH := "dda12a826db3b1b9a25cfc80c0fca6ef9fc272f925ae4907ff289c026bd9b3a1"
+  fails := fails ++ (← check s!"golden type_hash of the deep Eq = {wantTH}" (goldenTH == wantTH))
+  if goldenTH != wantTH then IO.println s!"      got {goldenTH}"
+
   -- Pure SHA-256 against the FIPS vector.
   let abcHex := CA.SHA256.toHex256 (CA.SHA256.sha256Pure "abc".toUTF8)
   fails := fails ++ (← check "sha256Pure(\"abc\") matches the FIPS vector"

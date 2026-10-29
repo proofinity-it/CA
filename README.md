@@ -139,14 +139,14 @@ The full table, with bindings and verification records, is in
 | [Examples](examples/README.md) | two small projects: one publishes a registry (committed, readable without building), the other lists it in `sources.json` and cites a result by address with `resolve%`; a walkthrough script packs, checks, verifies, signs and merges ([explained step by step](docs/walkthrough.md)) |
 | [All documents](docs/README.md) | index with the status of each |
 
-Status: v0.3.1. The encoding scheme is versioned (`meta.json` and every
+Status: v0.4.0. The encoding scheme is versioned (`meta.json` and every
 id preimage carry it), so a later scheme can coexist with this one; a
 registry is publishable as a folder or as a node file; a node file is
 checkable, kernel-verifiable with signed records, and mergeable; a build
 can look statements up in the registries it lists. Left:
 [`docs/plan.md`](docs/plan.md). The API may still change.
 
-Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.1"`,
+Quick start: `require ca from git "https://github.com/proofinity-it/CA" @ "v0.4.0"`,
 mark declarations with `@[publish]` / `@[open_point]`, and end a module with
 `#ca_registry "registry/"`; `lake build` writes the registry.
 [`examples/publish`](examples/publish) is exactly that, and

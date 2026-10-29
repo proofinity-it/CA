@@ -30,6 +30,7 @@ def manifestToJson (decls : Array DeclHash)
     ("lean_toolchain", .str toolchain),
     ("transparency", .str transparency),
     ("hash_mode", .str hashMode),
+    ("type_hash_scheme", .num ⟨CA.RefHash.typeHashScheme.toNat, 0⟩),
     ("total_declarations", .num ⟨decls.size, 0⟩),
     ("declarations", .arr (decls.map DeclHash.toJson))
   ]

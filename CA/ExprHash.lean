@@ -1,5 +1,6 @@
 import Lean
 import CA.Canonical
+import CA.RefHash
 import CA.SHA256
 import CA.Util
 
@@ -56,19 +57,21 @@ private partial def pushLevel (buf : ByteArray) (l : Level) : ByteArray :=
   | .param name => pushName (pushTag buf 0x14) name
   | .mvar id => pushName (pushTag buf 0x15) id.name
 
-/-! ## Structural Serialization
+/-! ## Structural Serialization (`type_hash` scheme 1, retired)
 
-Serialize an Expr into a ByteArray with tag bytes for each constructor.
-`.const` nodes carry the constant's *name*: this is the name-based hash,
-the registry's `type_hash` and a coarse, toolchain-stable handle. For
-name-free identity see `CA.RefHash`. (A "content-based" variant that
-embedded the referenced declaration's *type* hash, computed in
-topological order, was removed before the first public release: it collided every definition
-of a given type and fell back to names silently; `RefHash` supersedes
-it.) -/
+Serialize an Expr into a ByteArray with tag bytes for each constructor,
+`.const` nodes carrying the constant's *name*. SHA-256 of this was the
+name-based `type_hash` up to CA v0.3.1 (scheme 1). It walks the **tree**,
+so its cost is the tree's size, unbounded in the DAG's: CA no longer
+hashes with it. The name-based hashes are now `CA.RefHash.typeHashOf`
+and `valueHashOf` (scheme 2, Merkle, memoised: the DAG's cost), which
+`computeNameBasedHashes` below uses. The serialisation itself remains, as
+a payload format (canode stores small types with it, behind a node
+cap), not as an id. -/
 
 /-- Serialize an Expr into a ByteArray. Each constructor gets a unique tag byte
-    followed by its serialized children. -/
+    followed by its serialized children. A tree walk: never call it on a
+    term whose tree may be large. -/
 partial def serializeExpr (e : Expr) (buf : ByteArray := .empty) : ByteArray :=
   match e with
   | .bvar n => pushNat (pushTag buf 0x01) n
@@ -116,10 +119,9 @@ structure DeclHash where
   name       : Name
   module     : Name            -- source module
   kind       : String
-  typeHash   : String          -- hex hash of canonicalized type
-  valueHash  : Option String   -- hex hash of canonicalized value, or sentinel
+  typeHash   : String          -- hex `type_hash` (scheme 2, `RefHash.typeHashOf`)
+  valueHash  : Option String   -- hex value hash (`RefHash.valueHashOf`), or sentinel
   ppType     : String          -- pretty-printed type
-  typeBytes  : ByteArray       -- serialized canonical type Expr
   typeDeps   : Array Name      -- constants referenced in the type
   valueDeps  : Array Name      -- constants referenced in the value
   deriving Inhabited
@@ -157,68 +159,59 @@ private structure PreDeclHash where
   typeHash   : String
   valueHash  : Option String
   canonType  : Expr           -- for ppExpr in a separate pass
-  typeBytes  : ByteArray
   typeDeps   : Array Name
   valueDeps  : Array Name
   deriving Inhabited
 
-/-- Build the canonicalization function for a given level. -/
-private def mkCanonFn (level : CanonLevel) : Expr → MetaM Expr := fun e =>
+/-- The type to hash at a given level, before universe renaming (the
+    hash renames positionally from the declaration's `levelParams`): the
+    type itself for L0, its reducible normal form for L1. -/
+private def mkNormFn (level : CanonLevel) : Expr → MetaM Expr := fun e =>
   match level with
-  | .l0 => pure (canonicalizeL0 e)
-  | .l1 => canonicalizeL1 e
+  | .l0 => pure e
+  | .l1 => deepNormalize e
 
-/-- Hash the value of a declaration using L0 canonicalization.
+/-- Hash the value of a declaration at L0 (`RefHash.valueHashOf`).
     Values always use L0 — whnf on definition values causes cumulative
-    memory growth → SIGSEGV after ~30k declarations.
-    `serialize` is the serialization function (`serializeExpr`). -/
-private def hashValue (ci : ConstantInfo)
-    (serialize : Expr → ByteArray) (hasher : Hasher) : MetaM (Option String × Array Name) := do
+    memory growth → SIGSEGV after ~30k declarations. -/
+private def hashValue (ci : ConstantInfo) (hasher : Hasher) (shared : CA.RefHash.SharedMemo) :
+    IO (Option String × Array Name) := do
   match ci with
   | .thmInfo ti =>
     let vdeps := (collectConstants ti.value).toList.toArray
     pure (some proofIrrelevantHash, vdeps)
   | .defnInfo di =>
-    let canonVal := canonicalizeL0 di.value
-    let vs := serialize canonVal
-    let vhBytes ← hasher vs
-    let vh := toHex vhBytes
-    let vdeps := (collectConstants di.value).toList.toArray
-    pure (some vh, vdeps)
+    let vh ← CA.RefHash.valueHashOf ci.levelParams di.value hasher shared
+    pure (some (toHex vh), (collectConstants di.value).toList.toArray)
   | .opaqueInfo oi =>
-    let canonVal := canonicalizeL0 oi.value
-    let vs := serialize canonVal
-    let vhBytes ← hasher vs
-    let vh := toHex vhBytes
-    let vdeps := (collectConstants oi.value).toList.toArray
-    pure (some vh, vdeps)
+    let vh ← CA.RefHash.valueHashOf ci.levelParams oi.value hasher shared
+    pure (some (toHex vh), (collectConstants oi.value).toList.toArray)
   | _ => pure (none, #[])
 
 /-- Phase 1: Canonicalize + hash a batch in a single MetaM session (no ppExpr).
     Returns pre-hashes and the number of declarations that fell back to L0. -/
 private def hashBatchPhase1 (env : Environment) (batch : Array (Name × ConstantInfo))
-    (canonFn : Expr → MetaM Expr) (hasher : Hasher) : IO (Array PreDeclHash × Nat) := do
+    (normFn : Expr → MetaM Expr) (hasher : Hasher) (shared : CA.RefHash.SharedMemo) :
+    IO (Array PreDeclHash × Nat) := do
   runMetaM env do
     let mut results : Array PreDeclHash := #[]
     let mut fallbacks : Nat := 0
     for (name, ci) in batch do
-      let canonType ← try
-        canonFn ci.type
+      let normType ← try
+        normFn ci.type
       catch e =>
         fallbacks := fallbacks + 1
         IO.eprintln s!"  Warning: L1 failed on {name}: {← e.toMessageData.toString}"
-        pure (canonicalizeL0 ci.type)
-      let serialized := serializeExpr canonType
-      let hashBytes ← hasher serialized
-      let typeH := toHex hashBytes
+        pure ci.type
+      let typeH := toHex (← CA.RefHash.typeHashOf ci.levelParams normType hasher shared)
       let typeDeps := (collectConstants ci.type).toList.toArray
       let mod := getModuleName env name
 
-      let (valueH, valueDeps) ← hashValue ci serializeExpr hasher
+      let (valueH, valueDeps) ← hashValue ci hasher shared
 
       results := results.push {
         name, module := mod, kind := constantKind ci, typeHash := typeH,
-        valueHash := valueH, canonType, typeBytes := serialized,
+        valueHash := valueH, canonType := canonicalizeL0 normType,
         typeDeps, valueDeps
       }
     return (results, fallbacks)
@@ -234,7 +227,7 @@ private def hashBatchPhase2 (env : Environment)
       results := results.push {
         name := ph.name, module := ph.module, kind := ph.kind,
         typeHash := ph.typeHash, valueHash := ph.valueHash,
-        ppType := ppT, typeBytes := ph.typeBytes,
+        ppType := ppT,
         typeDeps := ph.typeDeps, valueDeps := ph.valueDeps
       }
     return results
@@ -254,7 +247,10 @@ private def flushInterval : Nat := 5000
 def computeNameBasedHashes (env : Environment) (decls : Array (Name × ConstantInfo))
     (level : CanonLevel) (batchSize : Nat := 0) (hasher : Hasher := pureHasher)
     : IO (Array DeclHash) := do
-  let canonFn := mkCanonFn level
+  let normFn := mkNormFn level
+  -- One memo for the whole run: subterm ids do not depend on the root
+  -- tag, so types and values share it (`RefHash.valueHashOf`).
+  let shared : CA.RefHash.SharedMemo ← IO.mkRef {}
   let bs := if batchSize > 0 then batchSize
             else if level == .l1 then defaultL1BatchSize else decls.size
   let mut allResults : Array DeclHash := #[]
@@ -266,7 +262,7 @@ def computeNameBasedHashes (env : Environment) (decls : Array (Name × ConstantI
     if batchStart % 1000 == 0 then
       IO.eprintln s!"  Normalizing: {batchStart}/{decls.size}"
     let batch := decls[batchStart:batchEnd]
-    let (batchResults, fallbacks) ← hashBatchPhase1 env batch canonFn hasher
+    let (batchResults, fallbacks) ← hashBatchPhase1 env batch normFn hasher shared
     pendingPre := pendingPre ++ batchResults
     totalFallbacks := totalFallbacks + fallbacks
     batchStart := batchEnd

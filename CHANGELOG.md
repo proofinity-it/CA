@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.0 — 2026-10-29 — type_hash scheme 2
+
+- **`type_hash` scheme 2.** The name-based hash is now the Merkle engine
+  of `stmt` with names at the leaves (`CA.RefHash.typeHashOf`,
+  `valueHashOf`; `spec.md` §15, test vector set C, also in
+  `tools/refhash_ref.py`). Scheme 1 serialised the whole tree: on Lean
+  Pool four projects went past 8 GB (one to 37.7 GB for 1,899
+  declarations); scheme 2 hashes them in under half a second each, and
+  all of Mathlib in about 30 s. Its values differ from scheme 1's:
+  registries (`meta.json`), node files and `ca address` manifests record
+  `type_hash_scheme: 2`, and `ca lookup`, `#ca_lookup` and `ca migrate`
+  compare `type_hash` only within one scheme (absent means 1).
+  `stmt`, `decl` and `ref` are unchanged (scheme 1 stands).
+- `ca address` / `ca fetch` no longer store the serialised type
+  (`type_bytes`) in Redis: it was the same tree walk, and nothing read it.
+- `examples/*/registry` regenerated.
+
 ## v0.3.1 — 2026-10-26 — a fresh start
 
 Ids are unchanged (encoding scheme 1, as v0.1.0 to v0.3.0). The repository

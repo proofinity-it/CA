@@ -1,5 +1,5 @@
 [{"type_hash":
-  "20b5a614af8bf70c2a76fd3383a4f2bcd4b2546453b8964ac16aec20819b3524",
+  "2224fe404b22279cca2acc586e0e146f752c9cffb705c42129e578c25f78dea3",
   "type_deps": ["Nat", "Eq"],
   "stmt": "DWUJ9VWtwKrytQdG3BDjC6ijobWZFaggA8Kc5Zh1Fvp9",
   "status": "open",
@@ -10,7 +10,7 @@
   "kind": "definition",
   "description": "both"},
  {"type_hash":
-  "d73f3967fc94d334681986a8fd4e9e327ed9eab8a5890cc007a0e804f0243ad8",
+  "11c8f2378f81add7906f168ddc5c8031543ccb8788e3e55e1ea934956e31cd2e",
   "type_deps":
   ["instOfNatNat",
    "instHAdd",
@@ -29,7 +29,7 @@
   "kind": "definition",
   "description": "proved below"},
  {"type_hash":
-  "7752f522ca3b7bc8aaf2e58ba3a0efefbd24d0b078566aa46d6a542460f53505",
+  "2a7247af957953fde9dc5b9ad0cd8275f30ee59501545e85f503401913729662",
   "type_deps":
   ["HMul.hMul",
    "instMulNat",
@@ -48,7 +48,7 @@
   "kind": "definition",
   "description": "nobody proves this here"},
  {"type_hash":
-  "fd8fe136be80e1c0f953cb499116aff507f717c96b6e8719c012776647012066",
+  "1811dd357a6d39fc4f63e98ca9b47c0875fba78c0ae155b79b48cb869171b113",
   "type_deps": ["Open1", "And", "True"],
   "stmt": "APWzjgfCbyx1HhpyQ3Z7hFJ37gbeuf4Lhyo8dhSu3Kso",
   "status": "definition",
@@ -58,7 +58,7 @@
   "module": "Publish",
   "kind": "definition"},
  {"type_hash":
-  "0cb83ee19bb0020db961d234bf7494b3fd3042bff72ab88551fa48f3d681c386",
+  "afdfc4f7ea02d23a9d7a9b6959a7518d5ad374da2ebc078eed6cfde9b956e31d",
   "type_deps": ["Open1", "True", "Or"],
   "stmt": "B39zsD8X5R8K4kwrXxVSvz8MPf2QgSpA698iEyw9yjeb",
   "status": "proved",
@@ -68,7 +68,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "330cbb1ce948c12a66daec82d27bddf3704dbfbc802f35229edcc1ecb6ac769a",
+  "c3e08633fba2fd61fd84d2624f370e5b1dee5f5963c40d57b063a88f3d7e9c63",
   "type_deps": ["instOfNatNat", "Nat", "OfNat.ofNat", "Eq"],
   "stmt": "AwmtzQc9ejgRVPMDiZaZQUAvjcmHiEbqyVzYpvPth7YT",
   "status": "axiom",
@@ -78,7 +78,7 @@
   "module": "Publish",
   "kind": "axiom"},
  {"type_hash":
-  "5acc508e1849f11d7f788d761789c29e622855b06e533f8a93ffaa470705de12",
+  "64afdf6e6fc9e755d46acf454952c190b2b3458d55c641a400b22556af6e51f2",
   "type_deps":
   ["Open1",
    "HMul.hMul",
@@ -97,7 +97,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "d73f3967fc94d334681986a8fd4e9e327ed9eab8a5890cc007a0e804f0243ad8",
+  "11c8f2378f81add7906f168ddc5c8031543ccb8788e3e55e1ea934956e31cd2e",
   "type_deps":
   ["instOfNatNat",
    "instHAdd",
@@ -115,7 +115,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "5b27150a4e061f2ca686d44628e8e1bbd7e029a0871fb1ca45c669878893e975",
+  "8192a680156af85f4a50f92da4a7393d878e69463e670808f0e0190928ac3fad",
   "type_deps": ["Conj"],
   "stmt": "6MxgYZUpSXzHo4prQrN1v3oWvyZcj6qR8mPmR6bxZaNG",
   "status": "proved",
@@ -126,7 +126,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "e9a0b52bd53bd54eabb8245e6a73aa47fdc4e7b1bf7611623771f80ea68bf5e6",
+  "82ee64ac0c66d0e33e50c51440a4e4ec1c356822459573bfb0d1ab42ce62d41b",
   "type_deps": ["Nat"],
   "stmt": "BDFTUWxEDovpBwibBdHqBoBMj1uQwyimSz67ZUgTfXoN",
   "status": "definition",
@@ -136,7 +136,7 @@
   "module": "Publish",
   "kind": "definition"},
  {"type_hash":
-  "aab41bf7156b7a7abace36dc6afce1ec654236b2f56f502e41bd14f0dba4cfd9",
+  "2d3d3cf55ccb57927a18fcbb23c78bd66ebf05f75939051eff954e79027be43d",
   "type_deps": ["False", "Open1", "And", "Not"],
   "stmt": "4VGpHf3SvKGMRdFoJBJiiuuiaAY8kFMqCBdwT9hyFedh",
   "status": "proved",
@@ -146,7 +146,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "eaf1ad7eb8e91f4d66cff458d02fca4fb4a7681786da5d999c930b45438bfb07",
+  "22ffc692d931c33da078c20f8b306ad8c299cc1c2bf17eff6b6adab172598c08",
   "type_deps": ["Open1"],
   "stmt": "3tUXTS8xcwtnP2icSnMM6cEKCzBYTk3LRFwaEW8tFyzP",
   "status": "proved",
@@ -158,7 +158,7 @@
   "kind": "theorem",
   "description": "proves publish's Open1"},
  {"type_hash":
-  "f780ea42b04a74f4c9b23300724f1c1b5c8239d9c5f6a5fab9f15fc98ec94304",
+  "0480b28b0daad7cae536f8ca572f10878e02a9df474b728424c3142dc10ec64b",
   "type_deps":
   ["instOfNatNat",
    "instHAdd",
@@ -177,7 +177,7 @@
   "module": "Publish",
   "kind": "theorem"},
  {"type_hash":
-  "574ea3a33fa1f828b20a58c3cd0ce22e276bd41f5896ab9229325527fd160995",
+  "1c19d491e38a58d08e0345a106a8dc813017c591a7d83d1ad74b24a23e2d16d7",
   "type_deps":
   ["Wrap",
    "HMul.hMul",

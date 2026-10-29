@@ -1,4 +1,5 @@
-{"statements": 14,
+{"type_hash_scheme": 2,
+ "statements": 14,
  "published": 11,
  "proved": 8,
  "project": "Consume",
@@ -12,7 +13,7 @@
  "ca_scheme_version": 1,
  "ca_key_tiers":
  {"exact": "stmt (RefHash statement id, base58); ref = what dependents embed",
-  "coarse": "type_hash (name-based L0 SHA-256, hex)"},
+  "coarse": "type_hash (name-based, Merkle, scheme 2; hex)"},
  "ca_hash_mode": "name-based",
  "ca_hash_level": "L0",
  "axioms": 1}

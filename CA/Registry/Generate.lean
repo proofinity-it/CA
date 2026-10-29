@@ -111,9 +111,12 @@ def hashTarget (ci : ConstantInfo) : Expr :=
   | .defnInfo d => if ci.type.isProp then d.value else ci.type
   | _ => ci.type
 
-/-- The registry address of an expression: the name-based L0 hash, hex. -/
-def exprAddress (e : Expr) : String :=
-  toHex256 (sha256Pure (serializeExpr (canonicalizeL0 e)))
+/-- The registry's coarse address of an expression under universe binders
+    `levelParams`: the name-based `type_hash`, scheme 2
+    (`RefHash.typeHashOf`), hex. -/
+def exprAddress (levelParams : List Name) (e : Expr) (hasher : Hasher := pureHasher)
+    (shared : Option RefHash.SharedMemo := none) : IO String :=
+  return toHex256 (← RefHash.typeHashOf levelParams e hasher shared)
 
 /-- Binder domains of the top-level `∀`-telescope of a type: its
     hypotheses. (Bodies keep their loose bvars; only constants are read.) -/
@@ -158,6 +161,8 @@ structure EntryIds where
   ref        : ByteArray
   /-- Constants that had to be hashed by name (empty means exact). -/
   unresolved : Array Name := #[]
+  /-- The coarse tier: `type_hash` (scheme 2) of the same statement, hex. -/
+  typeHash   : String := ""
   deriving Inhabited
 
 /-- The constants whose `ref` ids the exact ids of `roots` need: the
@@ -305,6 +310,7 @@ def computeEntryIdsAndTable (env : Environment) (roots : Array Name) (hasher : H
       try writeRefTable p cache catch _ => pure ()
   let byName : Std.HashMap Name RefHash.DeclIds := ids.foldl (fun m d => m.insert d.name d) {}
   let mut out : Std.HashMap Name EntryIds := {}
+  let thMemo : RefHash.SharedMemo ← IO.mkRef {}
   for n in roots do
     let some d := byName.get? n | continue
     let some ci := env.find? n | continue
@@ -314,7 +320,8 @@ def computeEntryIdsAndTable (env : Environment) (roots : Array Name) (hasher : H
         else pure (d.stmt, #[])
       | _ => pure (d.stmt, #[])
     let unresolved := ((unres ++ d.unresolved).foldl (fun (s : NameSet) x => s.insert x) {}).toArray
-    out := out.insert n { stmt, ref := d.ref, unresolved }
+    let typeHash ← exprAddress ci.levelParams (hashTarget ci) hasher (some thMemo)
+    out := out.insert n { stmt, ref := d.ref, unresolved, typeHash }
   return (out, table)
 
 /-- `computeEntryIdsAndTable` without the table. -/
@@ -376,7 +383,7 @@ def classify (env : Environment) (ids : Std.HashMap Name EntryIds) : Array Entry
     let key := RefHash.toB58 eid.stmt
     if isOpen then openByStmt := openByStmt.insert key ((openByStmt.getD key #[]).push n)
     base := base.push { name := n, ci, isOpenPoint := isOpen, description := desc,
-                        address := exprAddress (hashTarget ci), stmt := eid.stmt, ref := eid.ref,
+                        address := eid.typeHash, stmt := eid.stmt, ref := eid.ref,
                         unresolved := eid.unresolved, status := .definition }
   -- Pass 2: which open points are proved by a published theorem — by the
   -- open point's constant, or by equal exact statement id (a theorem
@@ -532,9 +539,10 @@ def generateRegistryCore (env : Environment) (outputDir : String)
     ("ca_hash_level", .str "L0"),
     ("ca_hash_mode", .str "name-based"),
     ("ca_scheme_version", num CA.schemeVersion),
+    ("type_hash_scheme", num RefHash.typeHashScheme.toNat),
     ("ca_key_tiers", .mkObj [
       ("exact", .str "stmt (RefHash statement id, base58); ref = what dependents embed"),
-      ("coarse", .str "type_hash (name-based L0 SHA-256, hex)")]),
+      ("coarse", .str "type_hash (name-based, Merkle, scheme 2; hex)")]),
     ("entries", num entries.size),
     ("statements", num stmts.size),
     ("payload_format", num CA.Payload.formatVersion.toNat),

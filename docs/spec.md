@@ -1,6 +1,7 @@
 # CA content identity — specification, scheme 1
 
-Status: **normative** for encoding scheme 1 (every public CA release, v0.1.0 and later).
+Status: **normative** for encoding scheme 1 (every public CA release, v0.1.0 and later),
+and, in §15, for scheme 2 of the name-based `type_hash` (not yet emitted by any release).
 Conformance is checked by the vectors in §12. An independent
 implementation written from this document alone,
 [`tools/refhash_ref.py`](../tools/refhash_ref.py), reproduces all of
@@ -50,6 +51,7 @@ memoisation, not addresses (`worked-example.md` §4 explains why).
 | `str(s)` | `bytes(UTF-8 of s)` |
 | `bignat(n)` | `bytes(minimal big-endian bytes of n)`; `n = 0` is the empty byte string |
 | `name(n)` | `str(n.toString)`, Lean's dotted rendering (escaping included) |
+| `xname(n)` | `u64(k) ‖ c₁ ‖ … ‖ cₖ` over the `k` components, each `0x00 ‖ str(s)` (string) or `0x01 ‖ u64(i)` (number): injective, unlike `name` (§15 only) |
 
 `u64` is used for counts, indices and de Bruijn indices, which are far
 below `2^64`. Natural-number **literals** MUST use `bignat`, at full
@@ -167,6 +169,7 @@ which maps each referenced name to a *reference encoding*:
 renc(id r)        = 0x31 ‖ r                  -- r: the 32-byte ref of the constant
 renc(local i)     = 0x32 ‖ u64(i)             -- member i of the block being hashed (§9)
 renc(byName n)    = 0x33 ‖ name(n)            -- unresolved (§10)
+renc(leaf n)      = 0x34 ‖ xname(n)           -- the name as the reference: type_hash only (§15)
 ```
 
 **Depth.** `depth` is 0 for `bvar`, `fvar`, `mvar`, `sort`, `const` and
@@ -390,6 +393,18 @@ that `big`'s value is `@OfNat.ofNat Nat 18446744073709551616 (instOfNatNat 18446
 not a bare literal. Set A is also pinned in Lean by
 `lake exe refhash-test`.
 
+**Set C** (`type_hash`, §15). Built from bare constants, so no
+elaboration and no toolchain enters:
+`Eq.{1} Nat e e` with `e₀ = Nat.zero` and `eₖ₊₁ = Nat.add eₖ eₖ`, 64
+levels deep: a tree of 2⁶⁴ nodes, a DAG of 66.
+
+| id | value (hex) |
+|---|---|
+| `type_hash` | `dda12a826db3b1b9a25cfc80c0fca6ef9fc272f925ae4907ff289c026bd9b3a1` |
+
+An implementation that does not memoise (§7) cannot compute it. Pinned
+in Lean by `lake exe refhash-test` and in `tools/refhash_ref.py`.
+
 ## 13. Known limits of scheme 1
 
 These are properties of the scheme as specified, recorded so that nobody
@@ -422,7 +437,8 @@ and needs a new scheme version.
 ## 14. Versioning
 
 Every top-level preimage starts with a domain tag (`0xA1` `STMT`, `0xA2`
-`DECL`, `0xA3` `BLOCK`, `0xA4` `MEMBER`) followed by `v`. Expression
+`DECL`, `0xA3` `BLOCK`, `0xA4` `MEMBER`) followed by `v`, or by `w` for
+`0xA5` `TYPEHASH` (§15). Expression
 node tags (`0x2*`), level tags (`0x1*`) and reference tags (`0x3*`) are
 disjoint from these and from one another, so no two kinds of preimage
 can coincide.
@@ -436,3 +452,35 @@ schemes.
 |---|---|---|
 | 0 | pre-release development | no version byte; literals truncated to 64 bits; levels hashed syntactically |
 | 1 | v0.1.0 and later | this document |
+
+## 15. The name-based statement hash (`type_hash`, scheme 2)
+
+`type_hash` identifies a statement with its constants **by name**: the
+coarse handle that survives a toolchain release (`ref-hash.md`, *Which
+id to use where*). It is not an address. Equal `type_hash` with
+different `stmt` means one name, two meanings.
+
+```
+type_hash(c) = H( 0xA5 ‖ w ‖ u64(#levelParams) ‖ ⟦type c⟧_leaf )
+```
+
+- `w = 0x02` is the `type_hash` scheme, versioned apart from `v`.
+- `⟦·⟧_leaf` is §7 with the resolver mapping **every** constant, the
+  structure of a `proj` included, to `leaf n` (`0x34 ‖ xname(n)`). There
+  are no blocks, no base table and no fallbacks. A `leaf` is the
+  intended encoding, not an unresolved reference (§10).
+- The canonical form is §6's, from the declaration's `levelParams`,
+  exactly as for `stmt`.
+- The flat/Merkle split and the memo of §7 apply unchanged, so the cost
+  is the size of the DAG.
+
+**Scheme 1** (CA v0.1.0 to v0.3.1, `CA.ExprHash`) was SHA-256 over a
+flat pre-order serialisation of the whole tree, with constants by
+`name(n)` and universe parameters renamed per expression. Its cost was
+the size of the tree, and statements whose DAG has about 10³ nodes and
+whose tree has more than 10⁸ took tens of GB (`ref-hash.md`). Scheme 1
+and scheme 2 values MUST NOT be compared. A registry or node file that
+publishes `type_hash` MUST record its scheme (`type_hash_scheme`); one
+that does not record it is scheme 1.
+
+Test vector: §12, set C.

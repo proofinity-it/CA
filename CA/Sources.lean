@@ -133,6 +133,9 @@ structure Folder where
   project : String
   toolchain : String
   schemeVersion : Nat
+  /-- Scheme of the folder's `type_hash` values; `1` when `meta.json` does
+      not say (registries written before scheme 2). -/
+  typeHashScheme : Nat := 1
   entries : Array FolderEntry
   deriving Repr, Inhabited
 
@@ -168,8 +171,9 @@ def readFolder (dir : System.FilePath) : IO (Except String Folder) := do
     let entries ← arr.mapM entryOfJson
     let m := (Json.parse metaTxt).toOption.getD (.mkObj [])
     let scheme := (m.getObjValAs? Nat "ca_scheme_version").toOption.getD 0
+    let thScheme := (m.getObjValAs? Nat "type_hash_scheme").toOption.getD 1
     return { project := str m "project", toolchain := str m "lean_toolchain",
-             schemeVersion := scheme, entries }
+             schemeVersion := scheme, typeHashScheme := thScheme, entries }
 
 /-! ## Lookups -/
 
@@ -214,7 +218,11 @@ def matchQuery (q : Query) (e : FolderEntry) : Option Bool :=
   | .typeHash h => if e.typeHash == h then some true else none
   | .name n => if e.name == n then some false else none
 
+/-- Coarse matches are only meaningful between `type_hash` values of one
+    scheme: a folder of another scheme answers no `type_hash` query. -/
 def lookupFolder (source : String) (f : Folder) (q : Query) : Array Hit :=
+  if (match q with | .typeHash _ => f.typeHashScheme != CA.RefHash.typeHashScheme.toNat | _ => false)
+  then #[] else
   f.entries.filterMap fun e =>
     (matchQuery q e).map fun coarse => { source, project := f.project, toolchain := f.toolchain, entry := e, coarse }
 
@@ -235,7 +243,11 @@ def lookupFolders (sf : SourcesFile) (q : Query) (cacheDir : System.FilePath := 
       | .error e =>
         notes := notes.push (if isUrl s.location && !(← p.pathExists)
           then s!"{s.name}: not fetched yet; run `ca fetch-sources`" else s!"{s.name}: {e}")
-      | .ok f => hits := hits ++ lookupFolder s.name f q
+      | .ok f =>
+        if (match q with | .typeHash _ => true | _ => false) &&
+            f.typeHashScheme != CA.RefHash.typeHashScheme.toNat then
+          notes := notes.push s!"{s.name}: type_hash scheme {f.typeHashScheme}, not {CA.RefHash.typeHashScheme}; regenerate it to match coarsely"
+        hits := hits ++ lookupFolder s.name f q
   return (hits, notes)
 
 /-- One line per hit, for messages. -/

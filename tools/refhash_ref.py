@@ -1,4 +1,5 @@
-"""Independent reference implementation of CA content identity, scheme 1.
+"""Independent reference implementation of CA content identity, scheme 1,
+and of the name-based type_hash, scheme 2 (spec.md §15).
 
 Written from docs/spec.md alone, not from CA/RefHash.lean, to show that the
 specification is enough to reproduce the ids. Python 3 standard library
@@ -8,7 +9,10 @@ only. Run it to check the golden vectors of spec.md §12:
 
 Scope: everything the specification defines (primitives, level
 normalisation, canonicalisation, expression ids, declaration encodings,
-blocks). Input is built by hand below; there is no .olean reader.
+blocks, type_hash). Input is built by hand below; there is no .olean reader.
+Every walk over an expression is memoised on object identity, so a term
+built with sharing (the §12 deep vector: a 2^64-node tree, a 66-node DAG)
+costs its DAG, as §7 requires.
 """
 from __future__ import annotations
 
@@ -203,16 +207,20 @@ def normalize(l: Level) -> Level:
 
 # ── §6 canonicalisation ──────────────────────────────────────────────────
 
-def level_params_in(e: Expr, out: list):
+def level_params_in(e: Expr, out: list, seen: Optional[set] = None):
+    """Universe parameters in first-occurrence (pre-order) order. Skipping a
+    shared subterm already visited cannot change that order."""
+    seen = set() if seen is None else seen
     def lv(l):
         if l is None: return
         if l.k == "param" and l.name not in out: out.append(l.name)
         lv(l.a); lv(l.b)
-    if e is None: return
+    if e is None or id(e) in seen: return
+    seen.add(id(e))
     if e.k == "const":
         for l in e.levels: lv(l)
     if e.k == "sort": lv(e.lvl)
-    for c in (e.a, e.b, e.c): level_params_in(c, out)
+    for c in (e.a, e.b, e.c): level_params_in(c, out, seen)
 
 def canonical(level_params: list, e: Expr) -> Expr:
     occurring = []
@@ -226,19 +234,33 @@ def canonical(level_params: list, e: Expr) -> Expr:
             if l.k in ("max", "imax"): return Level(l.k, go(l.a), go(l.b))
             return l
         return normalize(go(l))
+    memo: dict = {}
     def E(e):
         if e is None: return None
-        if e.k == "mdata": return E(e.a)
-        if e.k == "const": return Expr("const", s=e.s, levels=tuple(L(l) for l in e.levels))
-        if e.k == "sort": return Expr("sort", lvl=L(e.lvl))
-        return Expr(e.k, n=e.n, s=e.s, a=E(e.a), b=E(e.b), c=E(e.c), bi=e.bi)
+        if id(e) in memo: return memo[id(e)][1]
+        if e.k == "mdata": r = E(e.a)
+        elif e.k == "const": r = Expr("const", s=e.s, levels=tuple(L(l) for l in e.levels))
+        elif e.k == "sort": r = Expr("sort", lvl=L(e.lvl))
+        else: r = Expr(e.k, n=e.n, s=e.s, a=E(e.a), b=E(e.b), c=E(e.c), bi=e.bi)
+        memo[id(e)] = (e, r)    # keep e alive, so its id is not reused
+        return r
     return E(e)
 
 # ── §7 expression ids ────────────────────────────────────────────────────
 
-RefEnc = Union[bytes, int, str]     # 32-byte id | block-local index | unresolved name
+class NameLeaf(str):
+    """A name as the reference, by design: the leaf of type_hash (§15)."""
+
+RefEnc = Union[bytes, int, str]     # 32-byte id | block-local index | unresolved name | NameLeaf
+
+def xname(n: str) -> bytes:
+    """§15: a name by component. Components here are strings: the vectors
+    use plain dotted names, with no numeric or escaped components."""
+    cs = n.split(".")
+    return u64(len(cs)) + b"".join(u8(0) + string(c) for c in cs)
 
 def refenc(r: RefEnc) -> bytes:
+    if isinstance(r, NameLeaf): return u8(0x34) + xname(r)
     if isinstance(r, bytes): return u8(0x31) + r
     if isinstance(r, int): return u8(0x32) + u64(r)
     return u8(0x33) + string(r)
@@ -250,11 +272,16 @@ def level_enc(l: Level) -> bytes:
     if l.k == "imax": return u8(0x13) + level_enc(l.a) + level_enc(l.b)
     return u8(0x14) + string(l.name)
 
+_depth: dict = {}
+
 def depth(e: Expr) -> int:
-    if e.k in ("app", "lam", "forall"): return max(depth(e.a), depth(e.b)) + 1
-    if e.k == "let": return max(depth(e.a), depth(e.b), depth(e.c)) + 1
-    if e.k == "proj": return depth(e.a) + 1
-    return 0
+    if id(e) in _depth: return _depth[id(e)][1]
+    if e.k in ("app", "lam", "forall"): d = max(depth(e.a), depth(e.b)) + 1
+    elif e.k == "let": d = max(depth(e.a), depth(e.b), depth(e.c)) + 1
+    elif e.k == "proj": d = depth(e.a) + 1
+    else: d = 0
+    _depth[id(e)] = (e, d)
+    return d
 
 TAG = {"bvar": 0x21, "sort": 0x24, "const": 0x25, "app": 0x26, "lam": 0x27,
        "forall": 0x28, "let": 0x29, "litnat": 0x2A, "litstr": 0x2B, "proj": 0x2C}
@@ -277,15 +304,21 @@ def flat(e, R) -> bytes:
     if e.k == "proj": return t + refenc(R(e.s)) + u64(e.n) + flat(e.a, R)
     return leaf(e, R)
 
-def eid(e: Expr, R: Callable[[str], RefEnc]) -> bytes:
+def eid(e: Expr, R: Callable[[str], RefEnc], memo: Optional[dict] = None) -> bytes:
+    memo = {} if memo is None else memo
+    if id(e) in memo: return memo[id(e)][1]
     if depth(e) <= 6:
-        return H(u8(0x2F) + flat(e, R))
-    t = u8(TAG[e.k])
-    if e.k == "app": return H(t + eid(e.a, R) + eid(e.b, R))
-    if e.k in ("lam", "forall"): return H(t + u8(e.bi) + eid(e.a, R) + eid(e.b, R))
-    if e.k == "let": return H(t + eid(e.a, R) + eid(e.b, R) + eid(e.c, R))
-    if e.k == "proj": return H(t + refenc(R(e.s)) + u64(e.n) + eid(e.a, R))
-    return H(leaf(e, R))
+        h = H(u8(0x2F) + flat(e, R))
+    else:
+        t = u8(TAG[e.k])
+        ch = lambda x: eid(x, R, memo)
+        if e.k == "app": h = H(t + ch(e.a) + ch(e.b))
+        elif e.k in ("lam", "forall"): h = H(t + u8(e.bi) + ch(e.a) + ch(e.b))
+        elif e.k == "let": h = H(t + ch(e.a) + ch(e.b) + ch(e.c))
+        elif e.k == "proj": h = H(t + refenc(R(e.s)) + u64(e.n) + ch(e.a))
+        else: h = H(leaf(e, R))
+    memo[id(e)] = (e, h)
+    return h
 
 # ── §8 declaration encodings ─────────────────────────────────────────────
 
@@ -293,6 +326,13 @@ KIND = {"axiom": 1, "defn": 2, "thm": 3, "opaque": 4, "quot": 5, "induct": 6, "c
 
 def stmt_hash(c: Const, R) -> bytes:
     return H(u8(0xA1) + u8(SCHEME) + u64(len(c.level_params)) + eid(canonical(c.level_params, c.type), R))
+
+TH_SCHEME = 2
+
+def type_hash(level_params: list, ty: Expr) -> bytes:
+    """§15: H(0xA5 ‖ w ‖ u64(#levelParams) ‖ ⟦ty⟧ with every constant a NameLeaf)."""
+    return H(u8(0xA5) + u8(TH_SCHEME) + u64(len(level_params))
+             + eid(canonical(level_params, ty), NameLeaf))
 
 def tail(c: Const, R, with_proofs=True) -> bytes:
     v = lambda e: eid(canonical(c.level_params, e), R)
@@ -485,6 +525,16 @@ def golden():
     good = sorted(ids2["P.swap"].unresolved) == ["P.x", "P.y"]
     ok &= good
     print(f"  {'ok  ' if good else 'FAIL'} P.swap unresolved = [P.x, P.y]")
+    # Vector 3 (§15): type_hash of Eq ℕ e e, e₀ = Nat.zero, eₖ₊₁ = Nat.add eₖ eₖ,
+    # 64 levels: a 2^64-node tree, a 66-node DAG.
+    e = const("Nat.zero")
+    for _ in range(64):
+        e = app(const("Nat.add"), e, e)
+    th = type_hash([], app(const("Eq", succ(ZERO)), const("Nat"), e, e)).hex()
+    w = "dda12a826db3b1b9a25cfc80c0fca6ef9fc272f925ae4907ff289c026bd9b3a1"
+    good = th == w
+    ok &= good
+    print(f"  {'ok  ' if good else 'FAIL'} type_hash deep Eq  {th}" + ("" if good else f"  (want {w})"))
     # Level normal form: the §5 examples.
     v = param("v")
     checks = [(lmax(u, v), lmax(v, u)), (lmax(u, u), u), (imax(u, succ(v)), lmax(u, succ(v))),

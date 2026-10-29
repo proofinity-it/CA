@@ -64,7 +64,7 @@ Everything lives in the `CA` repository. Downstream projects depend on
 a single package:
 
 ```lean
-require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.1"
+require ca from git "https://github.com/proofinity-it/CA" @ "v0.4.0"
 ```
 
 Source tree (items marked *planned* are not yet implemented):
@@ -140,9 +140,10 @@ As emitted today:
   "ca_hash_level": "L0",
   "ca_hash_mode": "name-based",
   "ca_scheme_version": 1,
+  "type_hash_scheme": 2,
   "ca_key_tiers": {
     "exact": "stmt (RefHash statement id, base58); ref = what dependents embed",
-    "coarse": "type_hash (name-based L0 SHA-256, hex)"
+    "coarse": "type_hash (name-based, Merkle, scheme 2; hex)"
   },
   "lean_toolchain": "leanprover/lean4:v4.35.0",
   "entries": 13,
@@ -231,7 +232,7 @@ One entry per annotated declaration, sorted by name. As emitted today
 |---|---|---|---|
 | `stmt` | exact | `RefHash` statement id (base58); for a `Prop` definition, of its *value* | anything in the statement's cone changes, down to Lean's core (so: every toolchain release that touches the cone) |
 | `ref` | exact | `RefHash.ref`: `stmt` for theorems, the value-inclusive `decl` otherwise — what a dependent embeds | as `stmt`, plus the value for non-theorems |
-| `type_hash` | coarse | name-based L0 SHA-256 (hex) of the same statement | the statement's shape or the *names* it mentions change |
+| `type_hash` | coarse | name-based hash (hex) of the same statement: scheme 2, [spec.md](spec.md) §15; compared only between registries of one `type_hash_scheme` (absent means 1) | the statement's shape or the *names* it mentions change |
 
 Matching two registries: equal `stmt` is the identical statement with no
 further question; otherwise equal `type_hash` is the same statement up
@@ -331,7 +332,7 @@ from the implemented file (`sources` with `name`, `kind`, `location`, `key`).
 
 A project joins the global registry by:
 
-1. Adding `require ca from git "https://github.com/proofinity-it/CA" @ "v0.3.1"`
+1. Adding `require ca from git "https://github.com/proofinity-it/CA" @ "v0.4.0"`
    to its `lakefile.lean`.
 2. Annotating declarations with `@[publish]` or `@[open_point]`.
 3. Adding `#ca_registry "registry/"` at the end of a module (or running
@@ -529,7 +530,7 @@ Both:
 1. load (or are given) the elaborated environment;
 2. collect the `@[publish]` and `@[open_point]` declarations;
 3. compute each entry's ids: `stmt` and `ref` exactly, over the statement
-   cone, and `type_hash`, the name-based L0 hash of the statement;
+   cone, and `type_hash`, the name-based hash of the statement (scheme 2);
 4. classify status (see *Status classification*);
 5. write the two files.
 
@@ -556,4 +557,4 @@ registry honest.
 | **Consensus** | Monotonic: one valid proof is enough |
 | **Coordination** | None required: a reader lists the registries it trusts; a curated list by PR (planned) |
 | **Cascade** | Within one registry, and across the projects it imports: implemented. Across registries merged without importing: emerges from the union, computed locally (planned) |
-| **Versioning** | Toolchain and encoding scheme recorded per registry (`meta.json`); the name-based L0 hash is stable across versions |
+| **Versioning** | Toolchain and encoding scheme recorded per registry (`meta.json`); the name-based `type_hash` is stable across versions, its own scheme recorded as `type_hash_scheme` |

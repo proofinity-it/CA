@@ -121,7 +121,11 @@ Rules that follow from the "stable under" column:
 
 ## The name-based hash: cost, and the planned rework
 
-*Measured 2026-10-29; the rework is a plan, not yet implemented.*
+*Measured 2026-10-29. Steps 1 and 4 below are implemented
+(`CA.RefHash.typeHashOf`, `valueHashOf`, `typeHashes`; `spec.md` §15,
+test vector set C) and every CA producer emits scheme 2: the registry,
+`ca pack`'s entries, `ca address` and `ca fetch`. Steps 2 and 3 are a
+plan.*
 
 `type_hash` (`CA.ExprHash`, the CLI's `ca address`) and `stmt` hash the
 same L0 form, but not the same way. `stmt` is Merkle-style with a memo
@@ -194,6 +198,12 @@ step that can collide.
    `meta.json` records a `type_hash` scheme next to
    `ca_scheme_version`, and the two are never compared across schemes.
    `stmt`, `decl` and `ref` do not change: scheme 1 stands.
+
+Step 1, measured on the same corpus (`v4.35.0-rc3`, OpenSSL hasher):
+the four projects that blew past 8 GB hash in 0.2 to 0.4 s each
+(ConnesRigidity: 1,899 declarations in 257 ms), and all of Mathlib's
+370k declarations in 33.5 s, the whole run, environment load included,
+peaking at 7.1 GB.
 
 What it buys: every id CA computes costs the size of the DAG, so no
 statement can take a machine down; `type_hash`, the only id that

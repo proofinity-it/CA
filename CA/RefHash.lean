@@ -152,11 +152,27 @@ inductive RefEnc where
   | blockLocal (i : Nat)
   /-- Not resolvable: fall back to the name (reported as unresolved). -/
   | byName (n : Name)
+  /-- The name *as the reference*, by design: the leaf of the name-based
+      `type_hash` (`typeHashOf`; `spec.md` §15, `renc(leaf n)`). Not a
+      fallback, so never reported as unresolved and safe for the shared
+      memo of a name-based pass. -/
+  | name (n : Name)
+
+/-- A name, injectively: component count, then each component tagged
+    string (`0`, length-prefixed UTF-8) or number (`1`, u64). Unlike
+    `pushName` (the rendered string), `` `a.b `` and `` «a.b» `` differ. -/
+private def pushNameExact (b : ByteArray) (n : Name) : ByteArray :=
+  let cs := n.components
+  cs.foldl (init := pushNat b cs.length) fun b c => match c with
+    | .str _ s => pushString (pushU8 b 0) s
+    | .num _ k => pushNat (pushU8 b 1) k
+    | .anonymous => b
 
 private def pushRefEnc (b : ByteArray) : RefEnc → ByteArray
   | .id bytes    => (pushU8 b 0x31) ++ bytes
   | .blockLocal i => pushNat (pushU8 b 0x32) i
   | .byName n    => pushName (pushU8 b 0x33) n
+  | .name n      => pushNameExact (pushU8 b 0x34) n
 
 /-- Lexicographic comparison of two byte arrays. -/
 private def bytesCmp (a b : ByteArray) : Ordering := Id.run do
@@ -726,6 +742,72 @@ def stmtIdOf (levelParams : List Name) (e : Expr) (table : RefTable)
     | none => .byName m
   let (h, st) ← (stmtHashCore resolve levelParams e).run { hasher }
   return (h, st.unresolved.toArray)
+
+/-! ## The name-based statement hash (`type_hash`, scheme 2)
+
+`type_hash` identifies a statement with its constants by **name**: the
+coarse, toolchain-stable handle next to `stmt` (`ref-hash.md`, *Which id
+to use where*). Scheme 1 (`CA.ExprHash.serializeExpr`) serialised the
+whole tree and hashed it once, so its cost was the size of the tree;
+statements whose DAG has ~10³ nodes and whose tree has >10⁸ took tens
+of GB. Scheme 2 is the same Merkle engine as `stmt` (`exprId`, flat
+below `flatDepth`, memoised on structurally equal subterms) with a
+`.const` leaf encoding its name (`RefEnc.name`), so its cost is the
+DAG's:
+
+```
+type_hash(c) = H( TYPEHASH ‖ w ‖ #levelParams ‖ ⟦type c⟧_name )
+```
+
+`w` is `typeHashScheme`; the L0 form is `stmt`'s (universes renamed
+positionally from `levelParams`). The values differ from scheme 1's:
+never compare the two. -/
+
+/-- Domain tag of the name-based statement hash, disjoint from `STMT`,
+    `DECL`, `BLOCK` and `MEMBER`. -/
+private def tagTypeHash : UInt8 := 0xA5
+
+/-- Version of the name-based `type_hash`. `1` is the flat serialisation
+    of `CA.ExprHash`; `2` is `typeHashOf`. Recorded beside
+    `ca_scheme_version` wherever a `type_hash` is published. -/
+def typeHashScheme : UInt8 := 2
+
+private def typeHashCore (levelParams : List Name) (ty : Expr) : HashM ByteArray := do
+  let ht ← exprId .name (canonicalizeL0Decl levelParams ty)
+  sha ((pushNat (pushU8 (pushU8 .empty tagTypeHash) typeHashScheme) levelParams.length) ++ ht)
+
+/-- Name-based `type_hash` (scheme 2) of a statement `ty` under universe
+    binders `levelParams`. Pass the same `shared` memo across calls to
+    reuse subterm ids between declarations; it must be one used *only*
+    for `type_hash` (its ids are not `stmt`'s). -/
+def typeHashOf (levelParams : List Name) (ty : Expr) (hasher : Hasher := pureHasher)
+    (shared : Option SharedMemo := none) : IO ByteArray := do
+  let (h, _) ← (typeHashCore levelParams ty).run { hasher, shared }
+  return h
+
+/-- Domain tag of the name-based hash of a definition's *value*, the
+    `addr_value` of `ca address` / `ca fetch`. -/
+private def tagValueHash : UInt8 := 0xA6
+
+/-- Name-based hash of a definition value (`spec.md` §15): as
+    `typeHashOf`, under tag `VALUEHASH`. Same engine, same memo rules: the
+    subterm ids do not depend on the root tag, so one `shared` memo may
+    serve both. -/
+def valueHashOf (levelParams : List Name) (value : Expr) (hasher : Hasher := pureHasher)
+    (shared : Option SharedMemo := none) : IO ByteArray := do
+  let act : HashM ByteArray := do
+    let hv ← exprId .name (canonicalizeL0Decl levelParams value)
+    sha ((pushNat (pushU8 (pushU8 .empty tagValueHash) typeHashScheme) levelParams.length) ++ hv)
+  let (h, _) ← act.run { hasher, shared }
+  return h
+
+/-- `type_hash` (scheme 2) of every declaration's type, with one shared
+    memo for the whole batch. Needs no base table: names are the leaves. -/
+def typeHashes (decls : Array (Name × ConstantInfo)) (hasher : Hasher := pureHasher) :
+    IO (Array (Name × ByteArray)) := do
+  let shared : SharedMemo ← IO.mkRef {}
+  decls.mapM fun (n, ci) => do
+    return (n, ← typeHashOf ci.levelParams ci.type hasher (some shared))
 
 /-- base58btc rendering, so ids print like the existing CA hashes.
     (Alias for `CA.Base58.encode`.) -/

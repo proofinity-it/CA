@@ -21,14 +21,18 @@ Two canonicalization levels:
 | L0 (default) | Universe renaming, level normalisation, mdata stripping | Pure |
 | L1 | L0 + reducible-transparency `whnf` normalization | MetaM |
 
-`CA.ExprHash` also keeps the older **name-based** hash, in which a
-`.const` reference is the declaration's `Name` string: fast and stable
-across toolchains, but blind — two libraries whose `IsSolvable` differ
-hash a theorem about it identically. `CA.RefHash` supersedes it for
-identity purposes; the name-based hash is worth keeping as a coarse,
-version-spanning handle, and the registry emits both (see below). An
-intermediate "content-based" mode, which embedded the referenced
-declaration's *type* hash, was removed before v0.1.0.
+CA also computes a **name-based** hash, `type_hash`, in which a
+`.const` reference is the declaration's name: stable across toolchains,
+but blind — two libraries whose `IsSolvable` differ hash a theorem
+about it identically. `CA.RefHash` supersedes it for identity purposes;
+the name-based hash is worth keeping as a coarse, version-spanning
+handle, and the registry emits both (see below). Since scheme 2 it is
+the same Merkle engine as `stmt` with names at the leaves
+(`CA.RefHash.typeHashOf`, [spec.md](spec.md) §15), so it costs the size
+of the statement's DAG; scheme 1 serialised the whole tree, which cost
+tens of GB on some statements ([ref-hash.md](ref-hash.md), *The
+name-based hash*). An intermediate "content-based" mode, which embedded
+the referenced declaration's *type* hash, was removed before v0.1.0.
 
 The identity scheme is in [ref-hash.md](ref-hash.md); the CLI's `ca address` and
 `ca fetch`, which compute either hash in bulk, are in [cli.md](cli.md); L1 is in
