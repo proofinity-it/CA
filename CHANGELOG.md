@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `tools/node-mcp/ca_node_mcp.py`: an MCP server with one tool,
+  `ca_lookup`, asking a CA live node (node.proofinity.it by default)
+  whether a statement, a name or an address is already stated in
+  Mathlib, Lean Pool or Tau Ceti. One file, `uv run` it; `mcp` 1.x or 2.x.
+
 ## v0.4.0 — 2026-10-29 — type_hash scheme 2
 
 - **`type_hash` scheme 2.** The name-based hash is now the Merkle engine

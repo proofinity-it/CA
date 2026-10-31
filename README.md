@@ -44,7 +44,10 @@ project lists the registries it consults in `sources.json`; `ca lookup`
 asks every one of them about a statement id, a coarse hash or a name,
 `#ca_lookup` does the same inside Lean, and `resolve% "<stmt>"` is the
 proof a source binds to that statement, checked against the current
-environment ([`docs/usage.md`](docs/usage.md)).
+environment ([`docs/usage.md`](docs/usage.md)). An agent asks a live
+node the same question through [`tools/node-mcp`](tools/node-mcp/README.md),
+an MCP server with one tool, `ca_lookup`, wrapping
+`https://node.proofinity.it/q?s=…&format=json`.
 
 A second implementation is coming: **canode**, a live node that keeps
 declarations in Redis under these ids, exports and imports the same node
