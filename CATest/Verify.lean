@@ -21,6 +21,9 @@ Test executable for `CA.Verify`: the kernel's verdict on a node.
 * A theorem whose proof uses `sorry` gets an invalid record.
 * A theorem citing a theorem that is not in the file but whose statement
   unit is (a registry entry) gets a record assuming that statement.
+* Two such theorems with one statement id (`Mu` / `Ad`, as `Mul` / `Add`):
+  each is assumed under its own names (v0.4.1; before, both were rebuilt
+  with the first one's names and the second citing proof was refused).
 -/
 
 open Lean CA.RefHash CA.Node CA.Verify
@@ -53,6 +56,14 @@ end
 theorem with_sorry : (1 : Nat) = 1 := sorry
 @[open_point] def Open1 : Prop := ∀ n : Nat, n * 1 = n
 @[publish] theorem uses_open (h : Open1) : 2 * 1 = 2 := h 2
+class Mu (α : Type) where
+  op : α → α → α
+class Ad (α : Type) where
+  op : α → α → α
+@[publish] theorem mu_idem {α : Type} [Mu α] (a : α) : Mu.op a a = Mu.op a a := rfl
+@[publish] theorem ad_idem {α : Type} [Ad α] (a : α) : Ad.op a a = Ad.op a a := rfl
+theorem use_mu {α : Type} [Mu α] (a : α) : Mu.op a a = Mu.op a a := mu_idem a
+theorem use_ad {α : Type} [Ad α] (a : α) : Ad.op a a = Ad.op a a := ad_idem a
 "
 
 private unsafe def enableInitImpl : IO Unit := Lean.enableInitializersExecution
@@ -124,6 +135,21 @@ def main : IO UInt32 := do
     | some r, some s => r.valid && r.assumes == #[s] && repU.assumed.any (·.1 == `t2)
     | _, _ => false)
   check "t3 packed without t2: t2 assumed from its statement unit, t3's record assumes exactly it" okU
+
+  -- 4b. Two names, one statement: `Mu` and `Ad` are one declaration id, so
+  -- `mu_idem` and `ad_idem` are one statement id, one statement unit and a
+  -- decoration each. Each must be assumed with its own names: assumed with
+  -- the other's, `ad_idem` would speak of `Mu` and `use_ad` would not check.
+  let (nodeT, _) ← packEnvironment env #[`use_mu, `use_ad, `Mu, `Ad, `Mu.op, `Ad.op] true (cacheDir := none)
+  let (_, repT) ← verifyNode base nodeT
+  for f in repT.faults do IO.println s!"    fault: {f}"
+  let muStmt := (nodeT.entries.find? (·.name == `mu_idem)).map (·.stmt)
+  let adStmt := (nodeT.entries.find? (·.name == `ad_idem)).map (·.stmt)
+  let okT := repT.faults.isEmpty && muStmt.isSome && muStmt == adStmt &&
+    (#[`use_mu, `use_ad].all fun n => (repT.records.find? (·.name == n)).any fun r =>
+      r.valid && some r.assumes == muStmt.map (#[·])) &&
+    repT.assumed.any (·.1 == `mu_idem) && repT.assumed.any (·.1 == `ad_idem)
+  check "twins: mu_idem and ad_idem share a statement id; each is assumed under its own names, both citing proofs check" okT
 
   -- 5. SHA-512 and Ed25519 (pure Lean) against FIPS 180-4 and RFC 8032.
   IO.println "Crypto:"

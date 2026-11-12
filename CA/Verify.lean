@@ -144,16 +144,22 @@ def rebuildAll (node : CA.Node.Node) (hasher : CA.SHA256.Hasher := CA.SHA256.pur
   return (out, faults)
 
 /-- The statement units of a node with a decoration, by key: what can be
-    assumed by ref id. -/
-def statementsOf (node : CA.Node.Node) : Std.HashMap ByteArray (UnitData × Decoration) := Id.run do
-  let decoOf : Std.HashMap ByteArray ByteArray :=
-    node.decorations.foldl (fun m d => if m.contains d.decl then m else m.insert d.decl d.bytes) {}
+    assumed by ref id. With each unit, its first decoration and every
+    decoration by the name it is for: two names can state the same thing
+    (`mul_comm` and `add_comm`: one statement id, as `Mul` and `Add` are
+    one declaration id), and each is rebuilt with its own names. -/
+def statementsOf (node : CA.Node.Node) :
+    Std.HashMap ByteArray (UnitData × Decoration × Std.HashMap Name Decoration) := Id.run do
+  let decosOf : Std.HashMap ByteArray (Array (Name × ByteArray)) :=
+    node.decorations.foldl (fun m d => m.insert d.decl ((m.getD d.decl #[]).push (d.name, d.bytes))) {}
   let mut out := {}
   for u in node.units do
     if u.form != .statement then continue
-    match decodeUnit u.bytes, decoOf.get? u.key >>= fun b => (decodeDecoration b).toOption with
-    | .ok d, some de => out := out.insert u.key (d, de)
-    | _, _ => pure ()
+    let .ok d := decodeUnit u.bytes | continue
+    let decoded := ((decosOf.getD u.key #[]).filterMap fun (n, b) =>
+      (decodeDecoration b).toOption.map (n, ·))
+    if let some first := decoded[0]? then
+      out := out.insert u.key (d, first.2, decoded.foldl (fun m (n, de) => m.insertIfNew n de) {})
   return out
 
 private def kernelMsg (e : Kernel.Exception) : IO String := do
@@ -209,7 +215,8 @@ private def union (a b : Array ByteArray) : Array ByteArray :=
 /-- Add `name` (and what it needs) to the environment. Returns whether the
     name is now available. `refIdOf` is the citing declaration's view of
     names → ref ids, used to assume a missing name by its statement. -/
-partial def visit (rebuilt : Std.HashMap Name Rebuilt) (stmts : Std.HashMap ByteArray (UnitData × Decoration))
+partial def visit (rebuilt : Std.HashMap Name Rebuilt)
+    (stmts : Std.HashMap ByteArray (UnitData × Decoration × Std.HashMap Name Decoration))
     (table : FileTable) (name : Name) (refIdOf : Name → Option ByteArray) : VM Bool := do
   if let some r := (← get).done.get? name then return r
   -- Already in the environment (imports, or added as part of a block).
@@ -224,7 +231,10 @@ partial def visit (rebuilt : Std.HashMap Name Rebuilt) (stmts : Std.HashMap Byte
   let some rb := rebuilt.get? name
     | -- Not in the file: assume it by its statement, if the file has one.
       match refIdOf name >>= fun r => (stmts.get? r).map (r, ·) with
-      | some (r, (u, de)) =>
+      | some (r, (u, first, byName)) =>
+        -- The decoration written for this name; a file that names the
+        -- statement once serves every name citing it.
+        let de := (byName.get? name).getD first
         match rebuildStatement u table de with
         | .error e => fault s!"{name}: statement to assume does not rebuild: {e}"; markFail name; return false
         | .ok (lps, type) =>

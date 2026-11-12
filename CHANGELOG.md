@@ -1,7 +1,20 @@
 # Changelog
 
-## Unreleased
+## v0.4.1 — 2026-11-12 — twin statements assumed under their own names
 
+Ids and the file format are unchanged.
+
+- **`CA.Verify`: a statement assumed for a name is rebuilt with that
+  name's decoration.** Two theorems can have one statement id (`mul_comm`
+  and `add_comm`: `Mul` and `Add` are one declaration id, and so is what
+  is built alike on them). A node file then holds one statement unit and a
+  decoration per name; `statementsOf` kept the first decoration only, so
+  the second name was assumed with the first one's names inside, and the
+  kernel refused a valid proof citing it (`application type mismatch`).
+  Nothing wrong was accepted. `statementsOf` now returns every decoration
+  by name beside the first, and `visit` takes the one for the name it
+  assumes (API: the value type of `statementsOf` and of `visit`'s `stmts`).
+  Found by canode on a packet citing both; `verify-test` has the case.
 - `tools/node-mcp/ca_node_mcp.py`: an MCP server with one tool,
   `ca_lookup`, asking a CA live node (node.proofinity.it by default)
   whether a statement, a name or an address is already stated in
